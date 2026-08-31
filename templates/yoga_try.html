@@ -1,0 +1,3372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Pose Detection</title>
+    <!-- 设置跨域资源处理 -->
+    <meta http-equiv="Cross-Origin-Opener-Policy" content="same-origin">
+    <meta http-equiv="Cross-Origin-Embedder-Policy" content="require-corp">
+    <!-- 添加AnyChart库 -->
+    <script src="https://cdn.anychart.com/releases/8.11.0/js/anychart-core.min.js"></script>
+    <script src="https://cdn.anychart.com/releases/8.11.0/js/anychart-radar.min.js"></script>
+    <!-- 添加AnyChart导出模块 -->
+    <script src="https://cdn.anychart.com/releases/8.11.0/js/anychart-exports.min.js"></script>
+    <!-- 禁用AnyChart水印 -->
+    <script>
+        window.ANYCHART_GLOBALS = {
+            server: false,  // 禁用服务器端通信
+            disableWatermark: true,  // 禁用水印
+            noCredits: true,  // 禁用credits
+            disableCredits: true,  // 禁用credits另一种方式
+            watermark: false   // 另一种禁用水印的方式
+        };
+        
+        // 确保执行后立即禁用全局水印功能
+        document.addEventListener('DOMContentLoaded', function() {
+            // 防止加载来自anychart.com的图片资源
+            const originalCreateElement = document.createElement;
+            document.createElement = function(tag) {
+                const element = originalCreateElement.call(document, tag);
+                if (tag.toLowerCase() === 'img') {
+                    const originalSetAttribute = element.setAttribute;
+                    element.setAttribute = function(name, value) {
+                        if (name === 'src' && value && value.includes('anychart.com')) {
+                            console.log('Blocked loading image from anychart.com');
+                            return;
+                        }
+                        return originalSetAttribute.call(this, name, value);
+                    };
+                }
+                return element;
+            };
+        });
+    </script>
+    <!-- 添加html2canvas库用于保存图表 -->
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+
+    <!-- 替换为Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- 添加苹果设计风格字体 -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;600;700;800;900&display=swap">
+    
+    <style>
+        :root {
+            --apple-background: #f5f7fa;
+            --apple-panel: #ffffff;
+            --apple-accent: #0071e3;
+            --apple-accent-hover: #0077ED;
+            --apple-text-primary: #1d1d1f;
+            --apple-text-secondary: #86868b;
+            --apple-border: #d2d2d7;
+            --apple-success: #32d74b;
+            --apple-error: #ff453a;
+            --apple-warning: #ff9f0a;
+            --apple-border-radius: 12px;
+            --apple-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+            --apple-font: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro', sans-serif;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: var(--apple-font);
+            background-color: var(--apple-background);
+            color: var(--apple-text-primary);
+            min-height: 100vh;
+            display: flex;
+            padding: 32px;
+        }
+        
+        /* Main layout containers */
+        .app-container {
+            display: flex;
+            width: 100%;
+            gap: 24px; /* 减少间距，让主面板更大 */
+            max-width: 1600px; /* 增加最大宽度 */
+            margin: 0 auto;
+            height: calc(100vh - 64px);
+            position: relative;
+        }
+        
+        .main-panel {
+            flex: 1.2; /* 增加主面板的比例，让视频区域更大 */
+            display: flex;
+            flex-direction: column;
+            border-radius: var(--apple-border-radius);
+            background-color: var(--apple-panel);
+            box-shadow: var(--apple-shadow);
+            padding: 20px; /* 减少padding */
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .sidebar {
+            width: 260px; /* 稍微减少侧边栏宽度 */
+            background-color: var(--apple-panel);
+            border-radius: var(--apple-border-radius);
+            box-shadow: var(--apple-shadow);
+            padding: 20px; /* 减少padding */
+            display: flex;
+            flex-direction: column;
+            gap: 16px; /* 减少间距 */
+            overflow: hidden;
+        }
+        
+        /* Video feed styles */
+        .video-container {
+            background-color: var(--apple-panel);
+            border-radius: var(--apple-border-radius);
+            box-shadow: var(--apple-shadow);
+            padding: 16px; /* 减少padding，让视频更大 */
+            width: 100%;
+            margin-bottom: 24px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        #videoFeed {
+            max-width: 100%;
+            max-height: 100%;
+            border-radius: var(--apple-border-radius);
+            object-fit: contain;
+            align-self: center;
+            transition: all 0.3s ease; /* 添加平滑过渡效果 */
+        }
+        
+        /* 动态尺寸调整样式 */
+        .video-feed-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+            min-height: 600px; /* 增加最小高度，让视频显示更大 */
+            position: relative;
+        }
+        
+        /* Poses selection styles */
+        .sidebar-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: var(--apple-text-primary);
+        }
+        
+        .poses-container {
+            overflow-y: auto;
+            flex: 1;
+            padding-right: 8px;
+        }
+        
+        .poses-container::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .poses-container::-webkit-scrollbar-thumb {
+            background-color: var(--apple-border);
+            border-radius: 3px;
+        }
+        
+        .poses-container::-webkit-scrollbar-track {
+            background-color: transparent;
+        }
+        
+        .pose-item {
+            position: relative;
+            margin-bottom: 16px;
+            cursor: pointer;
+            border: 2px solid transparent;
+            border-radius: var(--apple-border-radius);
+            transition: all 0.2s ease;
+            overflow: hidden;
+        }
+        
+        .pose-item.selected {
+            border-color: var(--apple-accent);
+        }
+        
+        .pose-item.disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
+        .pose-item.disabled img {
+            filter: grayscale(50%);
+        }
+        
+        .pose-checkbox {
+            position: absolute;
+            top: 8px;
+            left: 8px;
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+            z-index: 10;
+            accent-color: var(--apple-accent);
+        }
+        
+        .pose-checkbox:disabled {
+            cursor: not-allowed;
+        }
+        
+        .pose-item img {
+            width: 100%;
+            height: auto;
+            border-radius: 8px;
+            display: block;
+        }
+        
+        .pose-name {
+            margin-top: 8px;
+            font-size: 14px;
+            text-align: center;
+            font-weight: 500;
+            color: var(--apple-text-primary);
+        }
+        
+        /* Control buttons */
+        .controls-container {
+            margin-top: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .control-button {
+            width: 100%;
+            padding: 12px 16px;
+            font-size: 15px;
+            font-weight: 500;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        .start-button {
+            background-color: var(--apple-success);
+            color: white;
+        }
+        
+        .stop-button {
+            background-color: var(--apple-error);
+            color: white;
+        }
+        
+        .reset-button {
+            background-color: var(--apple-warning);
+            color: white;
+        }
+        
+        .save-button {
+            background-color: var(--apple-accent);
+            color: white;
+        }
+        
+        .control-button:hover {
+            transform: translateY(-1px);
+            filter: brightness(1.05);
+        }
+        
+        .control-button:active {
+            transform: scale(0.98);
+        }
+        
+        /* Feedback container */
+        .feedback-container {
+            background-color: var(--apple-panel);
+            border-radius: var(--apple-border-radius);
+            padding: 24px;
+            width: 100%;
+            max-height: 100%;
+            overflow-y: auto;
+            display: none;
+        }
+        
+        .feedback-title {
+            font-size: 22px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: var(--apple-accent);
+        }
+        
+        .feedback-text {
+            font-size: 15px;
+            line-height: 1.5;
+            color: var(--apple-text-primary);
+        }
+        
+        .feedback-text ul {
+            background-color: rgba(0, 113, 227, 0.05);
+            padding: 16px 16px 16px 36px;
+            border-radius: 12px;
+            margin: 16px 0;
+            border-left: 3px solid var(--apple-accent);
+        }
+        
+        .feedback-text li {
+            margin-bottom: 8px;
+            animation: fadeIn 0.5s ease-out forwards;
+        }
+        
+        /* Radar chart container */
+        #radarChartContainer {
+            width: 100%;
+            height: 100%;
+            display: none;
+            background-color: var(--apple-panel);
+            border-radius: var(--apple-border-radius);
+            position: relative;
+        }
+        
+        /* Angles display */
+        #anglesContainer {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            background-color: rgba(0, 0, 0, 0.6);
+            padding: 10px;
+            border-radius: 10px;
+            color: white;
+            z-index: 5;
+        }
+        
+        /* Breathing guidance display */
+        #breathingGuidanceContainer {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            background-color: rgba(50, 215, 75, 0.9);
+            padding: 12px;
+            border-radius: 10px;
+            color: white;
+            z-index: 5;
+            max-width: 300px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .breathing-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.9);
+            margin-bottom: 4px;
+        }
+        
+        .breathing-text {
+            font-size: 13px;
+            line-height: 1.4;
+            color: rgba(255, 255, 255, 1);
+        }
+        
+        .angle-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+        
+        .angle-name {
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.8);
+        }
+        
+        .angle-value {
+            font-size: 13px;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 1);
+        }
+        
+        /* Animations */
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(5px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        
+        /* Comparison table (fallback) */
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            box-shadow: var(--apple-shadow);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        
+        .comparison-table th {
+            background-color: var(--apple-accent);
+            color: white;
+            padding: 14px 16px;
+            text-align: left;
+            font-weight: 500;
+        }
+        
+        .comparison-table td {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--apple-border);
+        }
+        
+        .comparison-table tr:last-child td {
+            border-bottom: none;
+        }
+        
+        .comparison-table tr:nth-child(even) {
+            background-color: rgba(0, 0, 0, 0.02);
+        }
+        
+        .comparison-table .match-icon {
+            font-size: 16px;
+            font-weight: bold;
+        }
+        
+        .comparison-table .match-yes {
+            color: var(--apple-success);
+        }
+        
+        .comparison-table .match-no {
+            color: var(--apple-error);
+        }
+        
+        /* Loading overlay for saving */
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(255, 255, 255, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 900;
+        }
+        
+        .loading-message {
+            background-color: var(--apple-accent);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 24px;
+            font-weight: 500;
+        }
+        
+        /* Save dialog styles */
+        .save-dialog-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .save-dialog {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 350px;
+            background-color: var(--apple-panel);
+            border-radius: var(--apple-border-radius);
+            box-shadow: var(--apple-shadow);
+            padding: 24px;
+            z-index: 1001;
+        }
+        
+        .save-dialog-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: var(--apple-text-primary);
+        }
+        
+        .save-dialog-option {
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .save-dialog-option input[type="checkbox"] {
+            margin-right: 10px;
+            width: 18px;
+            height: 18px;
+            accent-color: var(--apple-accent);
+        }
+        
+        .save-dialog-buttons {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        .save-dialog-button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            font-family: var(--apple-font);
+            transition: all 0.2s ease;
+        }
+        
+        .save-dialog-button.primary {
+            background-color: var(--apple-accent);
+            color: white;
+        }
+        
+        .save-dialog-button.secondary {
+            background-color: var(--apple-background);
+            color: var(--apple-text-primary);
+            border: 1px solid var(--apple-border);
+        }
+        
+        .save-dialog-button:hover {
+            filter: brightness(1.05);
+            transform: translateY(-1px);
+        }
+        
+        /* Responsive design */
+        @media (max-width: 1024px) {
+            .app-container {
+                flex-direction: column;
+                height: auto;
+                padding: 16px;
+            }
+            
+            .sidebar {
+                width: 100%;
+                max-height: 300px;
+            }
+            
+            .main-panel {
+                min-height: 500px;
+            }
+            
+            body {
+                padding: 16px;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            body {
+                padding: 16px;
+            }
+            
+            .app-container {
+                height: calc(100vh - 120px);
+                margin-top: 70px;
+                flex-direction: column;
+            }
+            
+            .side-panel {
+                max-width: none;
+                height: auto;
+            }
+            
+            .pose-list {
+                max-height: 150px;
+            }
+            
+            .video-container {
+                height: 300px;
+            }
+            
+            .feedback-panel {
+                height: auto;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .app-container {
+                margin-top: 60px;
+            }
+        }
+
+        /* 删除独立语言切换器相关样式 */
+
+        .chart-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        /* Panel Styles */
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: var(--apple-text-primary);
+            display: flex;
+            align-items: center;
+        }
+        
+        /* Float menu button styles */
+        .float-menu-container {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            z-index: 1000;
+        }
+        
+        .float-menu-button {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background-color: var(--apple-accent);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .float-menu-button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+        }
+        
+        .float-menu-icon {
+            width: 24px;
+            height: 24px;
+            stroke: white;
+            fill: none;
+            stroke-width: 2;
+            transition: transform 0.3s ease;
+        }
+        
+        .float-menu-items {
+            position: absolute;
+            bottom: 70px;
+            right: 0;
+            background-color: var(--apple-panel);
+            border-radius: var(--apple-border-radius);
+            box-shadow: var(--apple-shadow);
+            padding: 8px 0;
+            width: 160px;
+            transform: scale(0);
+            transform-origin: bottom right;
+            opacity: 0;
+            transition: all 0.3s ease;
+            pointer-events: none;
+        }
+        
+        .float-menu-items.active {
+            transform: scale(1);
+            opacity: 1;
+            pointer-events: all;
+        }
+        
+        .float-menu-item {
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            color: var(--apple-text-primary);
+            text-decoration: none;
+            transition: background-color 0.2s ease;
+            cursor: pointer; /* Add cursor pointer to indicate clickable */
+            position: relative; /* Add positioning context */
+        }
+        
+        /* Add a pseudo-element that covers the entire area */
+        .float-menu-item::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 1; /* Place above other elements but below text */
+            cursor: pointer;
+        }
+        
+        /* Ensure text and icons are above the clickable area */
+        .float-menu-item span,
+        .float-menu-item-icon {
+            position: relative;
+            z-index: 2;
+        }
+        
+        .float-menu-item:hover {
+            background-color: rgba(0, 0, 0, 0.05);
+        }
+        
+        .float-menu-item-icon {
+            width: 18px;
+            height: 18px;
+            margin-right: 12px;
+            stroke: var(--apple-accent);
+            fill: none;
+            stroke-width: 2;
+        }
+
+        /* 视频源切换按钮样式 */
+        .video-source-controls {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 15px;
+            gap: 12px;
+            width: 100%;
+            position: relative;
+            left: 0;
+            transition: all 0.3s ease-in-out;
+            opacity: 1;
+        }
+
+        .source-button {
+            padding: 8px 16px;
+            border-radius: 20px;
+            border: 1px solid var(--apple-border);
+            background-color: var(--apple-panel);
+            color: var(--apple-text-primary);
+            text-decoration: none;
+            font-family: var(--apple-font);
+            font-size: 14px;
+            text-align: center;
+            transition: all 0.2s ease;
+            flex: 1;
+            max-width: 120px;
+            cursor: pointer;
+            display: inline-block;
+            margin: 0;
+        }
+
+        .source-button:hover {
+            background-color: rgba(0, 0, 0, 0.05);
+        }
+
+        .source-button.active {
+            background-color: var(--apple-accent);
+            color: white;
+            border-color: var(--apple-accent);
+        }
+
+        /* 视频源下拉菜单样式 */
+        .video-dropdown {
+            position: relative;
+            display: inline-block;
+        }
+
+        .video-dropdown-content {
+            display: none;
+            position: absolute;
+            background-color: var(--apple-panel);
+            min-width: 160px;
+            box-shadow: var(--apple-shadow);
+            border-radius: 10px;
+            z-index: 10;
+            padding: 8px 0;
+            margin-top: 5px;
+        }
+
+        .video-dropdown:hover .video-dropdown-content {
+            display: block;
+        }
+
+        .video-dropdown-item {
+            color: var(--apple-text-primary);
+            padding: 8px 16px;
+            text-decoration: none;
+            display: block;
+            font-size: 14px;
+            transition: background-color 0.2s;
+        }
+
+        .video-dropdown-item:hover {
+            background-color: rgba(0, 0, 0, 0.05);
+        }
+
+        .video-dropdown-item.active {
+            background-color: rgba(0, 113, 227, 0.1);
+            color: var(--apple-accent);
+        }
+
+        /* 视频控制面板样式 */
+        .video-source-controls {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 15px;
+            gap: 12px;
+            width: 100%;
+        }
+
+        .source-button {
+            padding: 8px 16px;
+            border-radius: 20px;
+            border: 1px solid var(--apple-border);
+            background-color: var(--apple-panel);
+            color: var(--apple-text-primary);
+            text-decoration: none;
+            font-family: var(--apple-font);
+            font-size: 14px;
+            text-align: center;
+            transition: all 0.2s ease;
+            flex: 1;
+            max-width: 120px;
+            cursor: pointer;
+        }
+
+        .source-button:hover {
+            background-color: rgba(0, 0, 0, 0.05);
+        }
+
+        .source-button.active {
+            background-color: var(--apple-accent);
+            color: white;
+            border-color: var(--apple-accent);
+        }
+
+        /* 视频选择模态框样式 */
+        .video-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .video-modal-content {
+            background-color: var(--apple-panel);
+            border-radius: 12px;
+            box-shadow: var(--apple-shadow);
+            width: 90%;
+            max-width: 500px;
+            overflow: hidden;
+        }
+
+        .video-modal-header {
+            padding: 16px;
+            border-bottom: 1px solid var(--apple-border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .video-modal-title {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .video-modal-close {
+            font-size: 24px;
+            cursor: pointer;
+            color: var(--apple-text-secondary);
+            background: none;
+            border: none;
+            padding: 0;
+            line-height: 1;
+        }
+
+        .video-modal-body {
+            padding: 16px;
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+
+        .video-upload-form {
+            margin-bottom: 24px;
+        }
+
+        .video-file-input {
+            width: 0.1px;
+            height: 0.1px;
+            opacity: 0;
+            overflow: hidden;
+            position: absolute;
+            z-index: -1;
+        }
+
+        .video-file-label {
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 6px;
+            background-color: var(--apple-accent);
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.2s;
+            text-align: center;
+            margin-bottom: 8px;
+        }
+
+        .video-file-name {
+            font-size: 14px;
+            margin-left: 8px;
+            color: var(--apple-text-secondary);
+        }
+
+        .video-list {
+            border-top: 1px solid var(--apple-border);
+            padding-top: 16px;
+        }
+
+        .video-list-title {
+            font-size: 16px;
+            font-weight: 500;
+            margin-bottom: 12px;
+        }
+
+        .video-item {
+            padding: 10px;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .video-item:hover {
+            background-color: rgba(0, 0, 0, 0.05);
+        }
+
+        .video-item.active {
+            background-color: rgba(0, 113, 227, 0.1);
+        }
+
+        .video-item-name {
+            margin-left: 8px;
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        /* 视频控制按钮在激活/禁用状态下的样式 */
+        .source-button {
+            padding: 8px 16px;
+            border-radius: 20px;
+            border: 1px solid var(--apple-border);
+            background-color: var(--apple-panel);
+            color: var(--apple-text-primary);
+            text-decoration: none;
+            font-family: var(--apple-font);
+            font-size: 14px;
+            text-align: center;
+            transition: all 0.2s ease;
+            flex: 1;
+            max-width: 120px;
+            cursor: pointer;
+            display: inline-block;
+            margin: 0;
+        }
+
+        /* 让modal显示在中心位置 */
+        .video-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* 确保视频源控制按钮容器在隐藏时不会占用空间 */
+        .video-source-controls[style*="display: none"] {
+            margin: 0;
+            height: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+
+        /* 移除视频显示模式切换相关样式 */
+    </style>
+</head>
+<body>
+    <!-- 浮动菜单 -->
+    <div class="float-menu-container">
+        <div class="float-menu-button" id="floatMenuButton">
+            <svg class="float-menu-icon" viewBox="0 0 24 24">
+                <line x1="3" y1="12" x2="21" y2="12"></line>
+                <line x1="3" y1="6" x2="21" y2="6"></line>
+                <line x1="3" y1="18" x2="21" y2="18"></line>
+            </svg>
+        </div>
+        <div class="float-menu-items" id="floatMenuItems">
+            <a href="/" class="float-menu-item" data-i18n="homeButton">
+                <svg class="float-menu-item-icon" viewBox="0 0 24 24">
+                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                    <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                </svg>
+                <span>首页</span>
+            </a>
+            <a href="/yoga_try" class="float-menu-item" data-i18n="tryYogaButton">
+                <svg class="float-menu-item-icon" viewBox="0 0 24 24">
+                    <path d="M18 8h1a4 4 0 0 1 0 8h-1"></path>
+                    <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path>
+                    <line x1="6" y1="1" x2="6" y2="4"></line>
+                    <line x1="10" y1="1" x2="10" y2="4"></line>
+                    <line x1="14" y1="1" x2="14" y2="4"></line>
+                </svg>
+                <span>尝试瑜伽</span>
+            </a>
+            <a href="/upload" class="float-menu-item" data-i18n="uploadButton">
+                <svg class="float-menu-item-icon" viewBox="0 0 24 24">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="17 8 12 3 7 8"></polyline>
+                    <line x1="12" y1="3" x2="12" y2="15"></line>
+                </svg>
+                <span>上传姿势</span>
+            </a>
+            <a href="/yoga_ai_chat" class="float-menu-item" data-i18n="aiChatButton">
+                <span>AI 对话</span>
+            </a>
+        </div>
+    </div>
+    
+    <!-- 应用容器 -->
+    <div class="app-container">
+        <!-- 主面板 -->
+        <div class="main-panel">
+            <!-- 视频显示区域 -->
+            <div class="video-container">
+                <!-- 添加视频源切换按钮 -->
+                <div class="video-source-controls" id="videoSourceControls">
+                    <a href="{{ url_for('yoga_try_route', source='camera') }}" class="source-button {% if is_camera %}active{% endif %}" data-i18n="useCamera">使用摄像头</a>
+                    <button id="videoSelectBtn" class="source-button {% if not is_camera %}active{% endif %}" data-i18n="useVideo">使用视频</button>
+                </div>
+                
+                <div class="video-feed-container">
+                    <img id="videoFeed" src="{{ url_for('video_feed1') }}" alt="Pose Detection">
+                </div>
+                
+                <!-- 角度显示框 -->
+                <div id="anglesContainer" class="angles-container" style="display: none;">
+                    <div class="angles-title" data-i18n="angleTitle">Real-time Joint Angles</div>
+                    <div class="angle-item">
+                        <span class="angle-name angle-label" data-i18n="leftArm">Left Arm:</span>
+                        <span id="leftArmAngle" class="angle-value">0°</span>
+                    </div>
+                    <div class="angle-item">
+                        <span class="angle-name angle-label" data-i18n="rightArm">Right Arm:</span>
+                        <span id="rightArmAngle" class="angle-value">0°</span>
+                    </div>
+                    <div class="angle-item">
+                        <span class="angle-name angle-label" data-i18n="leftBody">Left Body:</span>
+                        <span id="leftBodyAngle" class="angle-value">0°</span>
+                    </div>
+                    <div class="angle-item">
+                        <span class="angle-name angle-label" data-i18n="rightBody">Right Body:</span>
+                        <span id="rightBodyAngle" class="angle-value">0°</span>
+                    </div>
+                    <div class="angle-item">
+                        <span class="angle-name angle-label" data-i18n="leftLeg">Left Leg:</span>
+                        <span id="leftLegAngle" class="angle-value">0°</span>
+                    </div>
+                    <div class="angle-item">
+                        <span class="angle-name angle-label" data-i18n="rightLeg">Right Leg:</span>
+                        <span id="rightLegAngle" class="angle-value">0°</span>
+                    </div>
+                </div>
+                
+                <!-- 呼吸指导显示框 -->
+                <div id="breathingGuidanceContainer" class="breathing-guidance-container" style="display: none;">
+                    <div class="breathing-title" data-i18n="breathingGuidance">Breathing Guidance</div>
+                    <div id="breathingText" class="breathing-text">呼吸指导将在这里显示</div>
+                </div>
+            </div>
+            
+            <!-- 反馈文本容器 -->
+            <div id="feedbackContainer" class="feedback-container">
+                <div class="feedback-title" data-i18n="feedbackTitle">Training Results</div>
+                <div id="feedbackText" class="feedback-text">
+                    <div class="no-feedback" data-i18n="noFeedback">Feedback will be shown here after training</div>
+                </div>
+            </div>
+            
+            <!-- 雷达图容器 -->
+            <div id="radarChartContainer"></div>
+        </div>
+        
+        <!-- 侧边栏 -->
+        <div class="sidebar">
+            <!-- 姿势选择区域 -->
+            <div class="sidebar-title pose-selection-label" data-i18n="poseListTitle">Select a Pose</div>
+            <div class="poses-container">
+                {% if poses %}
+                    {% for pose in poses %}
+                    <div class="pose-item" data-pose="{{ pose }}">
+                        <input type="checkbox" class="pose-checkbox" id="checkbox-{{ pose }}">
+                        <img src="{{ url_for('static', filename='detect/' + pose_files[pose] + '.jpg') }}" 
+                             alt="{{ pose }}" 
+                             onerror="this.onerror=null; this.src=defaultImageUrl">
+                        <div class="pose-name">{{ pose }}</div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div style="text-align: center; padding: 20px;">
+                        <p>No poses available. Please upload poses first.</p>
+                        <a href="{{ url_for('upload') }}" style="color: var(--apple-accent); text-decoration: none; font-weight: 500; margin-top: 10px; display: inline-block;">Upload a Pose</a>
+                    </div>
+                {% endif %}
+            </div>
+            
+            <!-- 控制按钮区域 -->
+            <div class="controls-container">
+                <button id="startButton" class="control-button start-button" data-i18n="startButton">Start Training</button>
+                <button id="endButton" class="control-button stop-button" style="display: none;" data-i18n="endButton">End Training</button>
+                <button id="resetButton" class="control-button reset-button" style="display: none;" data-i18n="resetButton">Train Again</button>
+                <button id="saveChartButton" class="control-button save-button" style="display: none;" data-i18n="saveChartButton">Save Result</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 添加视频选择模态框 -->
+    <div id="videoModal" class="video-modal">
+        <div class="video-modal-content">
+            <div class="video-modal-header">
+                <h2 class="video-modal-title">选择视频</h2>
+                <button class="video-modal-close" id="videoModalClose">&times;</button>
+            </div>
+            <div class="video-modal-body">
+                <!-- 上传新视频表单 -->
+                <form action="/upload_video_file" method="post" enctype="multipart/form-data" class="video-upload-form">
+                    <h3>上传新视频</h3>
+                    <input type="file" name="video_file" id="videoFileInput" class="video-file-input" accept=".mp4,.avi,.mov,.mkv">
+                    <label for="videoFileInput" class="video-file-label">选择文件</label>
+                    <span id="videoFileName" class="video-file-name">未选择文件</span>
+                    <button type="submit" class="source-button" style="margin-top: 10px; background-color: var(--apple-accent); color: white;">上传</button>
+                </form>
+                
+                <!-- 已有视频列表 -->
+                <div class="video-list">
+                    <h3 class="video-list-title">选择已有视频</h3>
+                    <form action="/select_video" method="post" id="selectVideoForm">
+                        <input type="hidden" name="video_name" id="selectedVideoName">
+                        {% if available_videos %}
+                            {% for video in available_videos %}
+                            <div class="video-item {% if video in current_video %}active{% endif %}" data-video-name="{{ video }}">
+                                <div class="video-item-name">{{ video }}</div>
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                            <p>没有可用的视频文件</p>
+                        {% endif %}
+                        <button type="submit" id="confirmVideoBtn" class="source-button" style="margin-top: 15px; background-color: var(--apple-accent); color: white;">确认选择</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 添加JavaScript代码 -->
+    <script>
+        // 定义全局变量存储默认图片URL
+        const defaultImageUrl = "{{ url_for('static', filename='img/placeholder.jpg') }}";
+        
+        // 动态显示尺寸管理 - 大屏默认设置
+        let currentDisplaySize = {
+            width: 1000,  // 大屏默认宽度
+            height: 750,  // 大屏默认高度
+            aspectRatio: 1.33
+        };
+        
+        // 获取并应用显示尺寸
+        function updateVideoDisplaySize() {
+            fetch('/get_display_size')
+                .then(response => response.json())
+                .then(data => {
+                    currentDisplaySize = data;
+                    applyVideoDisplaySize();
+                })
+                .catch(error => {
+                    console.error('获取显示尺寸失败:', error);
+                });
+        }
+        
+        // 应用显示尺寸到视频元素
+        function applyVideoDisplaySize() {
+            const videoFeed = document.getElementById('videoFeed');
+            if (videoFeed) {
+                // 设置视频尺寸
+                videoFeed.style.width = `${currentDisplaySize.width}px`;
+                videoFeed.style.height = `${currentDisplaySize.height}px`;
+                
+                // 添加响应式调整
+                const container = document.querySelector('.video-feed-container');
+                if (container) {
+                    const containerWidth = container.offsetWidth;
+                    const containerHeight = container.offsetHeight;
+                    
+                    // 计算最佳显示尺寸，确保不超出容器
+                    const maxWidth = containerWidth - 32; // 减少padding，让视频更大
+                    const maxHeight = containerHeight - 32;
+                    
+                    let displayWidth = currentDisplaySize.width;
+                    let displayHeight = currentDisplaySize.height;
+                    
+                    // 如果超出容器，按比例缩小，但尽量保持较大尺寸
+                    if (displayWidth > maxWidth || displayHeight > maxHeight) {
+                        const scaleX = maxWidth / displayWidth;
+                        const scaleY = maxHeight / displayHeight;
+                        const scale = Math.min(scaleX, scaleY);
+                        
+                        displayWidth = Math.floor(displayWidth * scale);
+                        displayHeight = Math.floor(displayHeight * scale);
+                    } else {
+                        // 如果没有超出容器，尝试放大到容器的95%，让视频更大
+                        const targetWidth = Math.floor(maxWidth * 0.95); // 使用95%的容器宽度
+                        const targetHeight = Math.floor(maxHeight * 0.95); // 使用95%的容器高度
+                        
+                        const scaleX = targetWidth / displayWidth;
+                        const scaleY = targetHeight / displayHeight;
+                        const scale = Math.min(scaleX, scaleY, 2.0); // 增加最大放大倍数到2.0
+                        
+                        displayWidth = Math.floor(displayWidth * scale);
+                        displayHeight = Math.floor(displayHeight * scale);
+                    }
+                    
+                    videoFeed.style.width = `${displayWidth}px`;
+                    videoFeed.style.height = `${displayHeight}px`;
+                }
+                
+                console.log(`应用显示尺寸: ${displayWidth}x${displayHeight}`);
+            }
+        }
+        
+        // Language translation dictionary
+        const translations = {
+            zh: {
+                'startButton': '开始训练',
+                'endButton': '结束训练',
+                'resetButton': '再次训练',
+                'saveChartButton': '保存结果',
+                'poseListTitle': '选择姿势',
+                'feedbackTitle': '训练结果',
+                'angleTitle': '实时关节角度',
+                'leftArm': '左臂角度',
+                'rightArm': '右臂角度',
+                'leftBody': '左上身角度',
+                'rightBody': '右上身角度',
+                'leftLeg': '左腿角度',
+                'rightLeg': '右腿角度',
+                'matchCount': '匹配关节数',
+                'matchPercent': '匹配度',
+                'suggestions': '改进建议',
+                'saveSuccess': '保存成功',
+                'saveFailed': '保存失败',
+                'noFeedback': '训练后将在此处显示反馈',
+                'selectPose': '选择姿势',
+                'noPoseSelected': '请先选择一个训练姿势',
+                'trainingComplete': '训练完成',
+                'overallMatch': '总体匹配度',
+                'comparison': '与标准姿势的比较',
+                'deviation': '偏差',
+                'jointImprovement': '需要改进的关节',
+                'angleTooLarge': '角度过大',
+                'angleTooSmall': '角度过小',
+                'shouldBe': '应该是',
+                'congratulations': '恭喜！所有关节角度都在标准范围内',
+                'radarChartDesc': '下方的雷达图展示了您的姿势与标准姿势的详细比较',
+                'saving': '正在保存...',
+                'savingError': '保存失败，请尝试右键点击图表并选择"图片另存为"',
+                // 添加新的翻译
+                'saveOptions': '保存选项',
+                'saveImage': '下载雷达图',
+                'saveRecord': '保存训练记录',
+                'save': '保存',
+                'cancel': '取消',
+                'pleaseSelect': '请至少选择一个选项',
+                'standardPose': '标准姿势',
+                'userPose': '用户姿势',
+                // 添加导航按钮翻译
+                'homeButton': '首页',
+                'uploadButton': '上传姿势',
+                'refreshButton': '刷新',
+                'tryYogaButton': '尝试瑜伽',
+                'aiChatButton': 'AI 对话',
+                // 添加左右腿互换提示翻译
+                'legSwapDetected': '检测到左右腿互换',
+                'legSwapExplanation': '系统检测到左右腿互换可能提供更好的姿势匹配，已自动调整数据。',
+                'manualDownload': '手动下载图像',
+                'downloadNow': '立即下载',
+                'useCamera': '使用摄像头',
+                'useVideo': '使用视频',
+                'defaultVideo': '默认视频',
+                'video1': '瑜伽视频 1',
+                'video2': '瑜伽视频 2',
+                'video3': '瑜伽视频 3',
+                'breathingGuidance': '呼吸指导',
+            },
+            en: {
+                'startButton': 'Start Training',
+                'endButton': 'End Training',
+                'resetButton': 'Train Again',
+                'saveChartButton': 'Save Result',
+                'poseListTitle': 'Select Pose',
+                'feedbackTitle': 'Training Results',
+                'angleTitle': 'Real-time Joint Angles',
+                'leftArm': 'Left Arm Angle',
+                'rightArm': 'Right Arm Angle',
+                'leftBody': 'Left Body Angle',
+                'rightBody': 'Right Body Angle',
+                'leftLeg': 'Left Leg Angle',
+                'rightLeg': 'Right Leg Angle',
+                'matchCount': 'Matching Joints',
+                'matchPercent': 'Match Percentage',
+                'suggestions': 'Improvement Suggestions',
+                'saveSuccess': 'Saved Successfully',
+                'saveFailed': 'Save Failed',
+                'noFeedback': 'Feedback will be displayed here after training',
+                'selectPose': 'Select Pose',
+                'noPoseSelected': 'Please select a training pose first',
+                'trainingComplete': 'Training Complete',
+                'overallMatch': 'Overall Match',
+                'comparison': 'Comparison with Standard Pose',
+                'deviation': 'Deviation',
+                'jointImprovement': 'Joints Needing Improvement',
+                'angleTooLarge': 'Angle too large',
+                'angleTooSmall': 'Angle too small',
+                'shouldBe': 'should be',
+                'congratulations': 'Congratulations! All joint angles are within the standard range',
+                'radarChartDesc': 'The radar chart below shows a detailed comparison of your pose with the standard pose',
+                'saving': 'Saving...',
+                'savingError': 'Save failed. Please try right-clicking on the chart and select "Save Image As"',
+                // 添加新的翻译
+                'saveOptions': 'Save Options',
+                'saveImage': 'Download Radar Chart',
+                'saveRecord': 'Save Training Record',
+                'save': 'Save',
+                'cancel': 'Cancel',
+                'pleaseSelect': 'Please select at least one option',
+                'standardPose': 'Standard Pose',
+                'userPose': 'User Pose',
+                // 添加导航按钮翻译
+                'homeButton': 'Home',
+                'uploadButton': 'Upload Pose',
+                'refreshButton': 'Refresh',
+                'tryYogaButton': 'Try Yoga',
+                'aiChatButton': 'AI Chat',
+                // 添加左右腿互换提示翻译
+                'legSwapDetected': 'Leg Swap Detected',
+                'legSwapExplanation': 'The system detected that swapping left and right legs provides better pose matching and has adjusted the data automatically.',
+                'manualDownload': 'Download Image Manually',
+                'downloadNow': 'Download Now',
+                'useCamera': 'Use Camera',
+                'useVideo': 'Use Video',
+                'defaultVideo': 'Default Video',
+                'video1': 'Yoga Video 1',
+                'video2': 'Yoga Video 2',
+                'video3': 'Yoga Video 3',
+                'breathingGuidance': 'Breathing Guidance',
+            }
+        };
+
+        // 设置默认语言
+        let currentLanguage = 'zh';
+        
+        // 存储最近的训练结果，用于语言切换时重新生成反馈
+        let lastTrainingResults = {
+            userAngles: null,
+            standardAngles: null,
+            matchStatus: null,
+            matchCount: 0,
+            matchPercentage: 0,
+            nonMatchingJoints: [],
+            usedSwappedLegs: false
+        };
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // 设置默认语言 - 从localStorage获取或默认为中文
+            let currentLanguage = localStorage.getItem('yogaAppLanguage') || 'zh';
+            
+            // 初始化动态显示尺寸
+            updateVideoDisplaySize();
+            
+            // 监听窗口大小变化，重新调整显示尺寸
+            window.addEventListener('resize', function() {
+                setTimeout(applyVideoDisplaySize, 100); // 延迟执行，确保窗口调整完成
+            });
+            
+            // 浮动菜单功能
+            const floatMenuButton = document.getElementById('floatMenuButton');
+            const floatMenuItems = document.getElementById('floatMenuItems');
+            
+            if (floatMenuButton && floatMenuItems) {
+                floatMenuButton.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    floatMenuItems.classList.toggle('active');
+                    // 打开时旋转菜单图标
+                    const menuIcon = floatMenuButton.querySelector('.float-menu-icon');
+                    if (floatMenuItems.classList.contains('active')) {
+                        menuIcon.style.transform = 'rotate(90deg)';
+                    } else {
+                        menuIcon.style.transform = 'rotate(0)';
+                    }
+                });
+                
+                // 为所有菜单项添加点击事件
+                document.querySelectorAll('.float-menu-item').forEach(item => {
+                    item.addEventListener('click', function(e) {
+                        // Prevent default action initially to handle manually
+                        e.preventDefault();
+                        e.stopPropagation();
+                        
+                        // Get the href attribute and navigate to it after a slight delay
+                        // This ensures the menu animation completes
+                        const href = this.getAttribute('href');
+                        if (href) {
+                            setTimeout(() => {
+                                window.location.href = href;
+                            }, 100);
+                        }
+                        
+                        // Close the menu
+                        floatMenuItems.classList.remove('active');
+                        const menuIcon = floatMenuButton.querySelector('.float-menu-icon');
+                        menuIcon.style.transform = 'rotate(0)';
+                    });
+                });
+                
+                // 添加点击外部区域关闭菜单
+                document.addEventListener('click', function(event) {
+                    if (!floatMenuButton.contains(event.target) && !floatMenuItems.contains(event.target)) {
+                        floatMenuItems.classList.remove('active');
+                        const menuIcon = floatMenuButton.querySelector('.float-menu-icon');
+                        menuIcon.style.transform = 'rotate(0)';
+                    }
+                });
+                
+                // 添加语言切换到浮动菜单
+                const languageSwitcher = document.createElement('div');
+                languageSwitcher.className = 'float-menu-item';
+                languageSwitcher.innerHTML = `
+                    <svg class="float-menu-item-icon" viewBox="0 0 24 24">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="2" y1="12" x2="22" y2="12"></line>
+                        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+                    </svg>
+                    <span id="currentLang">${currentLanguage === 'zh' ? '切换到英文' : 'Switch to Chinese'}</span>
+                `;
+                floatMenuItems.appendChild(languageSwitcher);
+                
+                // 添加语言切换事件
+                languageSwitcher.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    // 切换语言
+                    currentLanguage = currentLanguage === 'zh' ? 'en' : 'zh';
+                    
+                    // 保存到localStorage
+                    localStorage.setItem('yogaAppLanguage', currentLanguage);
+                    
+                    // 更新界面文本
+                    updateLanguage(currentLanguage);
+                    
+                    // 更新浮动菜单文本
+                    updateFloatMenuText();
+                    
+                    // 更新语言切换按钮文本
+                    document.getElementById('currentLang').textContent = 
+                        currentLanguage === 'zh' ? '切换到英文' : 'Switch to Chinese';
+                });
+            } else {
+                console.error('Float menu elements not found');
+            }
+            
+            // 初始化语言设置
+            updateLanguage(currentLanguage);
+            
+            // 确保初始化时调用一次更新浮动菜单文本
+            updateFloatMenuText();
+            
+            // 获取DOM元素
+            const startButton = document.getElementById('startButton');
+            const endButton = document.getElementById('endButton');
+            const resetButton = document.getElementById('resetButton');
+            const saveChartButton = document.getElementById('saveChartButton');
+            const anglesContainer = document.getElementById('anglesContainer');
+            const videoFeed = document.getElementById('videoFeed');
+            const radarChartContainer = document.getElementById('radarChartContainer');
+            const feedbackContainer = document.getElementById('feedbackContainer');
+            const feedbackText = document.getElementById('feedbackText');
+            const poseItems = document.querySelectorAll('.pose-item');
+            const poseCheckboxes = document.querySelectorAll('.pose-checkbox');
+            const videoContainer = document.querySelector('.video-container');
+            
+            // 训练状态变量
+            let isTrainingActive = false;
+            let angleUpdateInterval = null;
+            
+            // 存储训练数据的变量
+            let trainingData = {
+                leftArm: [],
+                rightArm: [],
+                leftBody: [],
+                rightBody: [],
+                leftLeg: [],
+                rightLeg: []
+            };
+            
+            // 当前选择的姿势
+            let selectedPose = "";
+            
+            // 初始状态设置为未激活
+            toggleRecognition(false);
+            
+            // 为姿势项添加点击事件
+            poseItems.forEach(item => {
+                const checkbox = item.querySelector('.pose-checkbox');
+                const poseName = item.getAttribute('data-pose');
+                
+                // 点击姿势项时切换复选框状态
+                item.addEventListener('click', function(e) {
+                    // 如果点击的是复选框本身，不做额外处理
+                    if (e.target === checkbox) return;
+                    
+                    // 切换复选框状态
+                    checkbox.checked = !checkbox.checked;
+                    
+                    // 更新选中状态
+                    updatePoseSelection();
+                });
+                
+                // 复选框状态变化时更新选中状态
+                checkbox.addEventListener('change', function() {
+                    updatePoseSelection();
+                });
+            });
+            
+            // 更新姿势选择状态
+            function updatePoseSelection() {
+                // 清除所有选中状态
+                poseItems.forEach(item => {
+                    item.classList.remove('selected');
+                });
+                
+                // 获取所有选中的姿势
+                const checkedBoxes = document.querySelectorAll('.pose-checkbox:checked');
+                
+                // 如果有选中的姿势，更新选中状态和当前选择的姿势
+                if (checkedBoxes.length > 0) {
+                    // 只使用第一个选中的姿势
+                    const firstCheckedItem = checkedBoxes[0].closest('.pose-item');
+                    firstCheckedItem.classList.add('selected');
+                    selectedPose = firstCheckedItem.getAttribute('data-pose');
+                    
+                    // 取消其他复选框的选中状态
+                    poseCheckboxes.forEach(cb => {
+                        if (cb !== checkedBoxes[0]) {
+                            cb.checked = false;
+                        }
+                    });
+                } else {
+                    selectedPose = "";
+                }
+                
+                console.log('Selected pose:', selectedPose);
+            }
+            
+            // 修改开始训练函数
+            function startTraining() {
+                // 检查是否有选择姿势
+                if (!selectedPose) {
+                    alert(getTranslation('noPoseSelected'));
+                    return;
+                }
+                
+                // 调用开始训练接口，设置当前训练姿势
+                fetch('/start_training', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        pose_name: selectedPose
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Start training response:', data);
+                    
+                    if (!data.success) {
+                        console.error('启动训练失败:', data.message);
+                        return;
+                    }
+                    
+                    // 激活训练状态
+                    isTrainingActive = true;
+                    toggleRecognition(true);
+                    
+                    // 更新UI
+                    startButton.style.display = 'none';
+                    endButton.style.display = 'block';
+                    anglesContainer.style.display = 'block';
+                    saveChartButton.style.display = 'none';
+                    
+                    // 淡出并隐藏视频源控制按钮
+                    const videoSourceControls = document.getElementById('videoSourceControls');
+                    videoSourceControls.style.opacity = '0';
+                    
+                    // 使用淡出动画后隐藏
+                    setTimeout(() => {
+                        videoSourceControls.style.display = 'none';
+                    }, 300);
+                    
+                    // 隐藏雷达图，显示视频
+                    radarChartContainer.style.display = 'none';
+                    feedbackContainer.style.display = 'none';
+                    videoContainer.style.display = 'flex';
+                    videoFeed.style.display = 'block';
+                    
+                    // 禁用所有姿势选择
+                    disablePoseSelection();
+                    
+                    // 清空之前的训练数据
+                    trainingData = {
+                        leftArm: [],
+                        rightArm: [],
+                        leftBody: [],
+                        rightBody: [],
+                        leftLeg: [],
+                        rightLeg: []
+                    };
+                    
+                    // 获取并显示呼吸指导
+                    getBreathingGuidance(selectedPose);
+                    
+                    // 开始收集角度数据
+                    startAngleUpdates();
+                })
+                .catch(error => {
+                    console.error('Error starting training:', error);
+                    alert('启动训练失败，请重试');
+                });
+            }
+            
+            // 开始训练按钮点击事件
+            startButton.addEventListener('click', function() {
+                startTraining();
+            });
+            
+            // 结束训练按钮点击事件
+            endButton.addEventListener('click', function() {
+                // 调用结束训练接口
+                fetch('/end_training', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({})
+                })
+                .then(response => response.json())
+                .then(data => {
+                    console.log('End training response:', data);
+                    
+                    // 停止训练状态
+                    isTrainingActive = false;
+                    toggleRecognition(false);
+                    
+                    // 更新UI
+                    endButton.style.display = 'none';
+                    resetButton.style.display = 'block';
+                    anglesContainer.style.display = 'none';
+                    
+                    // 停止收集角度数据
+                    stopAngleUpdates();
+                    
+                    // 隐藏呼吸指导
+                    const breathingContainer = document.getElementById('breathingGuidanceContainer');
+                    if (breathingContainer) {
+                        breathingContainer.style.display = 'none';
+                    }
+                    
+                    // 处理收集到的训练数据并显示结果
+                    processTrainingData();
+                })
+                .catch(error => {
+                    console.error('Error ending training:', error);
+                    // 即使出错，也需要更新UI状态
+                    isTrainingActive = false;
+                    toggleRecognition(false);
+                    endButton.style.display = 'none';
+                    resetButton.style.display = 'block';
+                    anglesContainer.style.display = 'none';
+                    stopAngleUpdates();
+                });
+            });
+            
+            // 重新训练按钮点击事件
+            resetButton.addEventListener('click', function() {
+                // 更新UI
+                resetButton.style.display = 'none';
+                startButton.style.display = 'block';
+                
+                // 重置并显示视频源控制按钮
+                const videoSourceControls = document.getElementById('videoSourceControls');
+                videoSourceControls.style.display = 'flex';
+                videoSourceControls.style.opacity = '0';
+                
+                // 添加过渡动画
+                setTimeout(() => {
+                    videoSourceControls.style.opacity = '1';
+                }, 50);
+                
+                // 隐藏结果显示
+                radarChartContainer.style.display = 'none';
+                feedbackContainer.style.display = 'none';
+                saveChartButton.style.display = 'none';
+                
+                // 显示视频
+                videoContainer.style.display = 'flex';
+                videoFeed.style.display = 'block';
+                
+                // 启用所有姿势选择
+                enablePoseSelection();
+            });
+            
+            // 保存图表按钮点击事件
+            saveChartButton.addEventListener('click', function() {
+                showSaveDialog();
+            });
+            
+            // 启用姿势选择
+            function enablePoseSelection() {
+                poseItems.forEach(item => {
+                    item.classList.remove('disabled');
+                });
+                poseCheckboxes.forEach(checkbox => {
+                    checkbox.disabled = false;
+                });
+            }
+            
+            // 禁用姿势选择
+            function disablePoseSelection() {
+                poseItems.forEach(item => {
+                    item.classList.add('disabled');
+                });
+                poseCheckboxes.forEach(checkbox => {
+                    checkbox.disabled = true;
+                });
+            }
+            
+            // 发送识别状态到服务器
+            function toggleRecognition(active) {
+                fetch('/toggle_recognition', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        active: active
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Toggle recognition response:', data);
+                })
+                .catch(error => {
+                    console.error('Error toggling recognition:', error);
+                });
+            }
+            
+            // 开始定时更新角度数据
+            function startAngleUpdates() {
+                // 优化：降低更新频率，从100ms改为200ms，减少服务器负载
+                angleUpdateInterval = setInterval(updateAngles, 200);
+            }
+            
+            // 停止定时更新角度数据
+            function stopAngleUpdates() {
+                if (angleUpdateInterval) {
+                    clearInterval(angleUpdateInterval);
+                    angleUpdateInterval = null;
+                }
+            }
+            
+            // 更新角度数据
+            function updateAngles() {
+                fetch('/get_angles')
+                    .then(response => response.json())
+                    .then(data => {
+                        // 更新UI显示
+                        document.getElementById('leftArmAngle').textContent = data['左臂角度'] + '°';
+                        document.getElementById('rightArmAngle').textContent = data['右臂角度'] + '°';
+                        document.getElementById('leftBodyAngle').textContent = data['左上身角度'] + '°';
+                        document.getElementById('rightBodyAngle').textContent = data['右上身角度'] + '°';
+                        document.getElementById('leftLegAngle').textContent = data['左腿角度'] + '°';
+                        document.getElementById('rightLegAngle').textContent = data['右腿角度'] + '°';
+                        
+                        // 如果处于训练状态，收集数据
+                        if (isTrainingActive) {
+                            trainingData.leftArm.push(data['左臂角度']);
+                            trainingData.rightArm.push(data['右臂角度']);
+                            trainingData.leftBody.push(data['左上身角度']);
+                            trainingData.rightBody.push(data['右上身角度']);
+                            trainingData.leftLeg.push(data['左腿角度']);
+                            trainingData.rightLeg.push(data['右腿角度']);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error fetching angle data:', error);
+                    });
+            }
+            
+            // 计算数组平均值
+            function calculateAverage(arr) {
+                if (arr.length === 0) return 0;
+                const sum = arr.reduce((a, b) => a + b, 0);
+                return Math.round((sum / arr.length) * 100) / 100; // 保留两位小数
+            }
+            
+            // 处理训练数据并显示结果
+            function processTrainingData() {
+                // 检查是否有足够的数据
+                if (trainingData.leftArm.length === 0) {
+                    alert(getTranslation('insufficientData'));
+                    return;
+                }
+                
+                // 计算每个关节的平均角度
+                const avgAngles = {
+                    leftArm: calculateAverage(trainingData.leftArm),
+                    rightArm: calculateAverage(trainingData.rightArm),
+                    leftBody: calculateAverage(trainingData.leftBody),
+                    rightBody: calculateAverage(trainingData.rightBody),
+                    leftLeg: calculateAverage(trainingData.leftLeg),
+                    rightLeg: calculateAverage(trainingData.rightLeg)
+                };
+                
+                // 获取标准姿势的角度数据
+                fetch('/get_standard_pose_angles', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        pose_name: selectedPose
+                    })
+                })
+                .then(response => response.json())
+                .then(standardAngles => {
+                    // 隐藏视频显示
+                    videoContainer.style.display = 'none';
+                    
+                    // 首先显示反馈文本，创建平滑过渡
+                    feedbackContainer.style.display = 'block';
+                    
+                    // 为不同关节设置误差容忍度 - 与后端保持一致
+                    const maxErrors = {
+                        leftArm: 80,
+                        rightArm: 80,
+                        leftBody: 60,
+                        rightBody: 60,
+                        leftLeg: 70,
+                        rightLeg: 70
+                    };
+                    
+                    // 创建三种匹配方案：原始、左右全部对调、仅左右腿互换
+                    // 1. 原始方案
+                    const originalDeviations = {};
+                    const originalMatchStatus = {};
+                    let originalMatchCount = 0;
+                    
+                    // 2. 左右腿互换方案
+                    const legSwappedAngles = {
+                        ...avgAngles,
+                        leftLeg: avgAngles.rightLeg,
+                        rightLeg: avgAngles.leftLeg
+                    };
+                    const legSwappedDeviations = {};
+                    const legSwappedMatchStatus = {};
+                    let legSwappedMatchCount = 0;
+                    
+                    // 评估原始方案
+                    for (const key in avgAngles) {
+                        if (standardAngles[key] !== 0) {
+                            // 计算原始偏差
+                            const error = Math.abs(avgAngles[key] - standardAngles[key]);
+                            // 计算偏差百分比
+                            originalDeviations[key] = error / standardAngles[key] * 100;
+                            // 判断是否匹配
+                            originalMatchStatus[key] = error <= maxErrors[key];
+                            // 计数匹配的关节
+                            if (originalMatchStatus[key]) {
+                                originalMatchCount++;
+                            }
+                        } else {
+                            originalDeviations[key] = 0;
+                            originalMatchStatus[key] = true;
+                            originalMatchCount++;
+                        }
+                        // 限制最大偏差为100%
+                        originalDeviations[key] = Math.min(originalDeviations[key], 100);
+                    }
+                    
+                    // 评估左右腿互换方案
+                    for (const key in legSwappedAngles) {
+                        if (standardAngles[key] !== 0) {
+                            // 计算互换后偏差
+                            const error = Math.abs(legSwappedAngles[key] - standardAngles[key]);
+                            // 计算偏差百分比
+                            legSwappedDeviations[key] = error / standardAngles[key] * 100;
+                            // 判断是否匹配
+                            legSwappedMatchStatus[key] = error <= maxErrors[key];
+                            // 计数匹配的关节
+                            if (legSwappedMatchStatus[key]) {
+                                legSwappedMatchCount++;
+                            }
+                        } else {
+                            legSwappedDeviations[key] = 0;
+                            legSwappedMatchStatus[key] = true;
+                            legSwappedMatchCount++;
+                        }
+                        // 限制最大偏差为100%
+                        legSwappedDeviations[key] = Math.min(legSwappedDeviations[key], 100);
+                    }
+                    
+                    // 确定哪种方案最佳
+                    let deviations, matchStatus, matchCount;
+                    let usedSwappedLegs = false;
+                    
+                    if (legSwappedMatchCount > originalMatchCount) {
+                        // 如果左右腿互换方案匹配度更高，使用互换方案
+                        deviations = legSwappedDeviations;
+                        matchStatus = legSwappedMatchStatus;
+                        matchCount = legSwappedMatchCount;
+                        usedSwappedLegs = true;
+                        console.log("使用左右腿互换匹配: 匹配关节数:", matchCount);
+                    } else {
+                        // 否则使用原始方案
+                        deviations = originalDeviations;
+                        matchStatus = originalMatchStatus;
+                        matchCount = originalMatchCount;
+                        console.log("使用原始匹配: 匹配关节数:", matchCount);
+                    }
+                    
+                    // 计算总体匹配度
+                    const matchPercentage = Math.round((matchCount / 6) * 100);
+                    
+                    // 生成针对性建议
+                    const nonMatchingJoints = [];
+                    
+                    if (!matchStatus.leftArm) nonMatchingJoints.push('leftArm');
+                    if (!matchStatus.rightArm) nonMatchingJoints.push('rightArm');
+                    if (!matchStatus.leftBody) nonMatchingJoints.push('leftBody');
+                    if (!matchStatus.rightBody) nonMatchingJoints.push('rightBody');
+                    if (!matchStatus.leftLeg) nonMatchingJoints.push('leftLeg');
+                    if (!matchStatus.rightLeg) nonMatchingJoints.push('rightLeg');
+                    
+                    let specificSuggestions = '';
+                    
+                    if (nonMatchingJoints.length > 0) {
+                        specificSuggestions = `<p>${getTranslation('jointImprovement')}: <strong>` + 
+                            nonMatchingJoints.map(joint => getTranslation(joint)).join('</strong>, <strong>') + '</strong></p>';
+                        specificSuggestions += `<p>${getTranslation('suggestions')}: </p><ul>`;
+                        
+                        nonMatchingJoints.forEach(key => {
+                            // 如果使用了左右腿互换方案，在显示角度时也要相应切换
+                            const displayAngles = usedSwappedLegs ? 
+                                (key === 'leftLeg' ? avgAngles.rightLeg : 
+                                 key === 'rightLeg' ? avgAngles.leftLeg : avgAngles[key]) : 
+                                avgAngles[key];
+                            
+                            const userValue = Math.round(displayAngles);
+                            const stdValue = Math.round(standardAngles[key]);
+                            
+                            if (userValue > stdValue) {
+                                specificSuggestions += `<li><strong>${getTranslation(key)}</strong>: ${getTranslation('angleTooLarge')} (${userValue}°), ${getTranslation('shouldBe')} ${stdValue}°</li>`;
+                            } else {
+                                specificSuggestions += `<li><strong>${getTranslation(key)}</strong>: ${getTranslation('angleTooSmall')} (${userValue}°), ${getTranslation('shouldBe')} ${stdValue}°</li>`;
+                            }
+                        });
+                        
+                        specificSuggestions += '</ul>';
+                    } else {
+                        specificSuggestions = `<p>${getTranslation('congratulations')}</p>`;
+                    }
+                    
+                    // 如果使用了腿部互换，添加提示信息
+                    let legSwapInfo = '';
+                    if (usedSwappedLegs) {
+                        legSwapInfo = `<p style="background-color: rgba(255, 159, 10, 0.1); padding: 10px; border-radius: 8px; border-left: 3px solid var(--apple-warning);">
+                            <strong>${getTranslation('legSwapDetected')}</strong>: ${getTranslation('legSwapExplanation')}
+                        </p>`;
+                    }
+                    
+                    // 更新反馈文本
+                    feedbackText.innerHTML = `
+                        <p>${getTranslation('trainingComplete')} <strong>${selectedPose}</strong>!</p>
+                        ${legSwapInfo}
+                        <p>${getTranslation('overallMatch')}: <strong style="color: ${matchPercentage >= 75 ? 'var(--apple-success)' : matchPercentage >= 50 ? 'var(--apple-warning)' : 'var(--apple-error)'}">${matchPercentage}%</strong> (${getTranslation('matchCount')}: ${matchCount}/6)</p>
+                        <p>${getTranslation('comparison')}:</p>
+                        <ul>
+                            <li>${getTranslation('leftArm')}: ${Math.round(usedSwappedLegs ? avgAngles.leftArm : avgAngles.leftArm)}° (${getTranslation('standardPose')} ${Math.round(standardAngles.leftArm)}°) - 
+                                ${getTranslation('deviation')} ${Math.round(deviations.leftArm)}% 
+                                ${matchStatus.leftArm ? '<span style="color:var(--apple-success)">✓</span>' : '<span style="color:var(--apple-error)">✗</span>'}
+                            </li>
+                            <li>${getTranslation('rightArm')}: ${Math.round(usedSwappedLegs ? avgAngles.rightArm : avgAngles.rightArm)}° (${getTranslation('standardPose')} ${Math.round(standardAngles.rightArm)}°) - 
+                                ${getTranslation('deviation')} ${Math.round(deviations.rightArm)}% 
+                                ${matchStatus.rightArm ? '<span style="color:var(--apple-success)">✓</span>' : '<span style="color:var(--apple-error)">✗</span>'}
+                            </li>
+                            <li>${getTranslation('leftBody')}: ${Math.round(usedSwappedLegs ? avgAngles.leftBody : avgAngles.leftBody)}° (${getTranslation('standardPose')} ${Math.round(standardAngles.leftBody)}°) - 
+                                ${getTranslation('deviation')} ${Math.round(deviations.leftBody)}% 
+                                ${matchStatus.leftBody ? '<span style="color:var(--apple-success)">✓</span>' : '<span style="color:var(--apple-error)">✗</span>'}
+                            </li>
+                            <li>${getTranslation('rightBody')}: ${Math.round(usedSwappedLegs ? avgAngles.rightBody : avgAngles.rightBody)}° (${getTranslation('standardPose')} ${Math.round(standardAngles.rightBody)}°) - 
+                                ${getTranslation('deviation')} ${Math.round(deviations.rightBody)}% 
+                                ${matchStatus.rightBody ? '<span style="color:var(--apple-success)">✓</span>' : '<span style="color:var(--apple-error)">✗</span>'}
+                            </li>
+                            <li>${getTranslation('leftLeg')}: ${Math.round(usedSwappedLegs ? avgAngles.rightLeg : avgAngles.leftLeg)}° (${getTranslation('standardPose')} ${Math.round(standardAngles.leftLeg)}°) - 
+                                ${getTranslation('deviation')} ${Math.round(deviations.leftLeg)}% 
+                                ${matchStatus.leftLeg ? '<span style="color:var(--apple-success)">✓</span>' : '<span style="color:var(--apple-error)">✗</span>'}
+                            </li>
+                            <li>${getTranslation('rightLeg')}: ${Math.round(usedSwappedLegs ? avgAngles.leftLeg : avgAngles.rightLeg)}° (${getTranslation('standardPose')} ${Math.round(standardAngles.rightLeg)}°) - 
+                                ${getTranslation('deviation')} ${Math.round(deviations.rightLeg)}% 
+                                ${matchStatus.rightLeg ? '<span style="color:var(--apple-success)">✓</span>' : '<span style="color:var(--apple-error)">✗</span>'}
+                            </li>
+                        </ul>
+                        ${specificSuggestions}
+                        <p>${getTranslation('radarChartDesc')}</p>
+                    `;
+                    
+                    // 保存处理结果到全局变量，用于语言切换时重新渲染
+                    lastTrainingResults = {
+                        userAngles: usedSwappedLegs ? {
+                            ...avgAngles,
+                            leftLeg: avgAngles.rightLeg,
+                            rightLeg: avgAngles.leftLeg
+                        } : {...avgAngles},
+                        standardAngles: {...standardAngles},
+                        matchStatus: {...matchStatus},
+                        matchCount: matchCount,
+                        matchPercentage: matchPercentage,
+                        nonMatchingJoints: [...nonMatchingJoints],
+                        usedSwappedLegs: usedSwappedLegs
+                    };
+                    
+                    // 延迟显示雷达图，创建过渡动画效果
+                    setTimeout(() => {
+                        // 显示雷达图容器
+                        radarChartContainer.style.display = 'block';
+                        
+                        // 创建雷达图 - 如果使用了腿部互换，使用互换后的角度
+                        createRadarChart(
+                            usedSwappedLegs ? {
+                                ...avgAngles,
+                                leftLeg: avgAngles.rightLeg,
+                                rightLeg: avgAngles.leftLeg
+                            } : avgAngles, 
+                            standardAngles, 
+                            matchStatus
+                        );
+                            
+                        // 显示保存按钮
+                        saveChartButton.style.display = 'block';
+                    }, 500);
+                })
+                .catch(error => {
+                    console.error('Error fetching standard pose angles:', error);
+                    alert('Failed to get standard pose data. Please try again!');
+                });
+            }
+            
+            // 创建雷达图
+            function createRadarChart(userAngles, standardAngles, matchStatus) {
+                // 清空容器并添加canvas元素
+                const container = document.getElementById('radarChartContainer');
+                container.innerHTML = '<canvas id="radarCanvas" width="100%" height="100%"></canvas>';
+                
+                try {
+                    // 准备数据
+                    const labels = [
+                        getTranslation('leftArm'),
+                        getTranslation('rightArm'),
+                        getTranslation('leftBody'),
+                        getTranslation('rightBody'),
+                        getTranslation('leftLeg'),
+                        getTranslation('rightLeg')
+                    ];
+                    const userData = [
+                        userAngles.leftArm,
+                        userAngles.rightArm,
+                        userAngles.leftBody,
+                        userAngles.rightBody,
+                        userAngles.leftLeg,
+                        userAngles.rightLeg
+                    ];
+                    
+                    const standardData = [
+                        standardAngles.leftArm,
+                        standardAngles.rightArm,
+                        standardAngles.leftBody,
+                        standardAngles.rightBody,
+                        standardAngles.leftLeg,
+                        standardAngles.rightLeg
+                    ];
+                    
+                    // 计算匹配度
+                    const matchCount = Object.values(matchStatus).filter(Boolean).length;
+                    const matchPercentage = Math.round((matchCount / 6) * 100);
+                    
+                    // 确定最大值
+                    const maxValue = Math.max(
+                        ...Object.values(userAngles),
+                        ...Object.values(standardAngles)
+                    ) * 1.2;
+                    
+                    // 获取Canvas上下文
+                    const ctx = document.getElementById('radarCanvas').getContext('2d');
+                    
+                    // 创建Chart.js雷达图
+                    const chart = new Chart(ctx, {
+                        type: 'radar',
+                        data: {
+                            labels: labels,
+                            datasets: [
+                                {
+                                    label: getTranslation('userPose'),
+                                    data: userData,
+                                    backgroundColor: 'rgba(0, 113, 227, 0.2)', // Apple blue
+                                    borderColor: 'rgb(0, 113, 227)',
+                                    pointBackgroundColor: 'rgb(0, 113, 227)',
+                                    pointBorderColor: '#fff',
+                                    pointHoverBackgroundColor: '#fff',
+                                    pointHoverBorderColor: 'rgb(0, 113, 227)',
+                                    borderWidth: 2
+                                },
+                                {
+                                    label: getTranslation('standardPose'),
+                                    data: standardData,
+                                    backgroundColor: 'rgba(50, 215, 75, 0.2)', // Apple green
+                                    borderColor: 'rgb(50, 215, 75)',
+                                    pointBackgroundColor: 'rgb(50, 215, 75)',
+                                    pointBorderColor: '#fff',
+                                    pointHoverBackgroundColor: '#fff',
+                                    pointHoverBorderColor: 'rgb(50, 215, 75)',
+                                    borderWidth: 2
+                                }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                title: {
+                                    display: true,
+                                    text: `${selectedPose} ${getTranslation('comparison')} (${getTranslation('matchPercent')}: ${matchPercentage}%)`,
+                                    font: {
+                                        size: 16,
+                                        family: 'Inter, sans-serif'
+                                    },
+                                    padding: {
+                                        bottom: 20
+                                    }
+                                },
+                                legend: {
+                                    labels: {
+                                        font: {
+                                            family: 'Inter, sans-serif'
+                                        }
+                                    }
+                                }
+                            },
+                            scales: {
+                                r: {
+                                    angleLines: {
+                                        display: true
+                                    },
+                                    suggestedMin: 0,
+                                    suggestedMax: maxValue,
+                                    ticks: {
+                                        stepSize: 50,
+                                        font: {
+                                            family: 'Inter, sans-serif'
+                                        }
+                                    },
+                                    pointLabels: {
+                                        font: {
+                                            family: 'Inter, sans-serif'
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                    
+                    // 保存图表实例到window对象，以便在语言切换时能够更新
+                    window.radarChart = chart;
+                    
+                } catch (error) {
+                    console.error('Error creating radar chart:', error);
+                    
+                    // 显示表格作为后备方案
+                    displayFallbackTable(userAngles, standardAngles, matchStatus);
+                }
+            }
+            
+            // 表格显示作为后备方案
+            function displayFallbackTable(userAngles, standardAngles, matchStatus) {
+                const container = document.getElementById('radarChartContainer');
+                container.style.padding = '24px';
+                
+                // 计算匹配度
+                const matchCount = Object.values(matchStatus).filter(Boolean).length;
+                const matchPercentage = Math.round((matchCount / 6) * 100);
+                
+                container.innerHTML = `
+                    <div style="text-align: center; margin-bottom: 20px;">
+                        <h3 style="font-size: 20px; font-weight: 600; margin-bottom: 16px;">Pose Evaluation Results</h3>
+                        <table class="comparison-table">
+                            <thead>
+                                <tr>
+                                    <th>Joint</th>
+                                    <th>Your Angle</th>
+                                    <th>Standard Angle</th>
+                                    <th>Match</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>Left Arm</strong></td>
+                                    <td>${Math.round(userAngles.leftArm)}°</td>
+                                    <td>${Math.round(standardAngles.leftArm)}°</td>
+                                    <td class="match-icon ${matchStatus.leftArm ? 'match-yes' : 'match-no'}">${matchStatus.leftArm ? '✓' : '✗'}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Right Arm</strong></td>
+                                    <td>${Math.round(userAngles.rightArm)}°</td>
+                                    <td>${Math.round(standardAngles.rightArm)}°</td>
+                                    <td class="match-icon ${matchStatus.rightArm ? 'match-yes' : 'match-no'}">${matchStatus.rightArm ? '✓' : '✗'}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Left Body</strong></td>
+                                    <td>${Math.round(userAngles.leftBody)}°</td>
+                                    <td>${Math.round(standardAngles.leftBody)}°</td>
+                                    <td class="match-icon ${matchStatus.leftBody ? 'match-yes' : 'match-no'}">${matchStatus.leftBody ? '✓' : '✗'}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Right Body</strong></td>
+                                    <td>${Math.round(userAngles.rightBody)}°</td>
+                                    <td>${Math.round(standardAngles.rightBody)}°</td>
+                                    <td class="match-icon ${matchStatus.rightBody ? 'match-yes' : 'match-no'}">${matchStatus.rightBody ? '✓' : '✗'}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Left Leg</strong></td>
+                                    <td>${Math.round(userAngles.leftLeg)}°</td>
+                                    <td>${Math.round(standardAngles.leftLeg)}°</td>
+                                    <td class="match-icon ${matchStatus.leftLeg ? 'match-yes' : 'match-no'}">${matchStatus.leftLeg ? '✓' : '✗'}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Right Leg</strong></td>
+                                    <td>${Math.round(userAngles.rightLeg)}°</td>
+                                    <td>${Math.round(standardAngles.rightLeg)}°</td>
+                                    <td class="match-icon ${matchStatus.rightLeg ? 'match-yes' : 'match-no'}">${matchStatus.rightLeg ? '✓' : '✗'}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        
+                        <div style="background-color: var(--apple-background); border-radius: 12px; padding: 20px; margin: 24px 0; text-align: center;">
+                            <h4 style="margin-top: 0; margin-bottom: 12px; font-size: 18px; font-weight: 600;">${selectedPose} Training Results</h4>
+                            <div style="font-size: 24px; font-weight: 700; color: ${matchPercentage >= 75 ? 'var(--apple-success)' : matchPercentage >= 50 ? 'var(--apple-warning)' : 'var(--apple-error)'};">
+                                ${matchPercentage}% Match
+                            </div>
+                            <p style="margin-top: 8px; color: var(--apple-text-secondary);">Matching joints: <strong>${matchCount}/6</strong></p>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // 保存图表为图片 - Chart.js版本
+            function saveChart(containerId) {
+                // 使用performSave统一实现
+                if (typeof performSave === 'function') {
+                    return performSave(containerId, true, true);
+                }
+                
+                // 以下是原始实现，当performSave不存在时作为后备方案
+                const container = document.getElementById(containerId);
+                
+                // 创建加载状态覆盖层
+                const loadingOverlay = document.createElement('div');
+                loadingOverlay.classList.add('loading-overlay');
+                
+                const loadingMessage = document.createElement('div');
+                loadingMessage.classList.add('loading-message');
+                loadingMessage.textContent = getTranslation('saving');
+                
+                loadingOverlay.appendChild(loadingMessage);
+                container.appendChild(loadingOverlay);
+                
+                try {
+                    // 保存训练记录到服务器
+                    const trainingRecord = {
+                        pose_name: selectedPose,
+                        timestamp: new Date().toISOString(),
+                        user_angles: lastTrainingResults.userAngles,
+                        standard_angles: lastTrainingResults.standardAngles,
+                        match_percentage: lastTrainingResults.matchPercentage,
+                        match_count: lastTrainingResults.matchCount,
+                        non_matching_joints: lastTrainingResults.nonMatchingJoints,
+                        used_swapped_legs: lastTrainingResults.usedSwappedLegs,
+                        // 添加更详细的角度信息
+                        angle_details: {
+                            leftArm: {
+                                user: lastTrainingResults.userAngles.leftArm,
+                                standard: lastTrainingResults.standardAngles.leftArm,
+                                difference: Math.abs(lastTrainingResults.userAngles.leftArm - lastTrainingResults.standardAngles.leftArm),
+                                is_matching: !lastTrainingResults.nonMatchingJoints.includes('leftArm')
+                            },
+                            rightArm: {
+                                user: lastTrainingResults.userAngles.rightArm,
+                                standard: lastTrainingResults.standardAngles.rightArm,
+                                difference: Math.abs(lastTrainingResults.userAngles.rightArm - lastTrainingResults.standardAngles.rightArm),
+                                is_matching: !lastTrainingResults.nonMatchingJoints.includes('rightArm')
+                            },
+                            leftBody: {
+                                user: lastTrainingResults.userAngles.leftBody,
+                                standard: lastTrainingResults.standardAngles.leftBody,
+                                difference: Math.abs(lastTrainingResults.userAngles.leftBody - lastTrainingResults.standardAngles.leftBody),
+                                is_matching: !lastTrainingResults.nonMatchingJoints.includes('leftBody')
+                            },
+                            rightBody: {
+                                user: lastTrainingResults.userAngles.rightBody,
+                                standard: lastTrainingResults.standardAngles.rightBody,
+                                difference: Math.abs(lastTrainingResults.userAngles.rightBody - lastTrainingResults.standardAngles.rightBody),
+                                is_matching: !lastTrainingResults.nonMatchingJoints.includes('rightBody')
+                            },
+                            leftLeg: {
+                                user: lastTrainingResults.userAngles.leftLeg,
+                                standard: lastTrainingResults.standardAngles.leftLeg,
+                                difference: Math.abs(lastTrainingResults.userAngles.leftLeg - lastTrainingResults.standardAngles.leftLeg),
+                                is_matching: !lastTrainingResults.nonMatchingJoints.includes('leftLeg')
+                            },
+                            rightLeg: {
+                                user: lastTrainingResults.userAngles.rightLeg,
+                                standard: lastTrainingResults.standardAngles.rightLeg,
+                                difference: Math.abs(lastTrainingResults.userAngles.rightLeg - lastTrainingResults.standardAngles.rightLeg),
+                                is_matching: !lastTrainingResults.nonMatchingJoints.includes('rightLeg')
+                            }
+                        },
+                        
+                        // 直接使用姿势名称作为描述，不再调用已删除的函数
+                        pose_description: selectedPose
+                    };
+                    
+                    // 发送数据到服务器
+                    fetch('/save_training_record', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(trainingRecord)
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log('训练记录保存结果:', data);
+                        if (!data.success) {
+                            console.error('保存训练记录失败:', data.message);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('保存训练记录出错:', error);
+                    });
+                    
+                    // 使用Chart.js直接从canvas获取图像
+                    if (window.radarChart && window.radarChart.canvas) {
+                        const canvas = window.radarChart.canvas;
+                        
+                        // 创建下载链接
+                        const link = document.createElement('a');
+                        link.download = `yoga-pose-${selectedPose}-${new Date().toISOString().slice(0,10)}.png`;
+                        link.href = canvas.toDataURL('image/png', 1.0);
+                        link.click();
+                        
+                        // 显示成功消息
+                        showSaveSuccess(container, loadingOverlay);
+                        return;
+                    }
+                    
+                    // 如果没有有效的Chart.js实例，使用html2canvas作为备选方案
+                    html2canvas(container, {
+                        backgroundColor: '#ffffff',
+                        scale: 2,
+                        useCORS: true,
+                        logging: false,
+                        removeContainer: false,
+                        ignoreElements: (element) => element === loadingOverlay,
+                        allowTaint: true
+                    }).then(canvas => {
+                        if (container.contains(loadingOverlay)) {
+                            container.removeChild(loadingOverlay);
+                        }
+                        
+                        const link = document.createElement('a');
+                        link.download = `yoga-pose-${selectedPose}-${new Date().toISOString().slice(0,10)}.png`;
+                        link.href = canvas.toDataURL('image/png');
+                        link.click();
+                        
+                        showSaveSuccess(container, loadingOverlay);
+                    }).catch(error => {
+                        console.error('Screenshot failed:', error);
+                        if (container.contains(loadingOverlay)) {
+                            container.removeChild(loadingOverlay);
+                        }
+                        alert(getTranslation('savingError'));
+                    });
+                } catch (error) {
+                    console.error('Chart save failed:', error);
+                    if (container.contains(loadingOverlay)) {
+                        container.removeChild(loadingOverlay);
+                    }
+                    alert(getTranslation('savingError'));
+                }
+            }
+
+            // 显示保存成功消息
+            function showSaveSuccess(container, loadingOverlay) {
+                // Always check if elements exist before manipulating them
+                if (container && loadingOverlay && container.contains(loadingOverlay)) {
+                    container.removeChild(loadingOverlay);
+                }
+                
+                // Create success message
+                const successMessage = document.createElement('div');
+                successMessage.className = 'save-success';
+                successMessage.textContent = '保存成功';
+                
+                // Only append if container exists
+                if (container) {
+                    container.appendChild(successMessage);
+                    
+                    // Remove success message after delay
+                    setTimeout(function() {
+                        if (container.contains(successMessage)) {
+                            container.removeChild(successMessage);
+                        }
+                    }, 2000);
+                }
+            }
+
+            // Function to update all text on the page based on the selected language
+            function updateLanguage(lang) {
+                // 更新具有data-i18n属性的元素
+                document.querySelectorAll('[data-i18n]').forEach(el => {
+                    const key = el.getAttribute('data-i18n');
+                    if (key && translations[lang][key]) {
+                        if (el.tagName.toLowerCase() === 'input') {
+                            if (el.type === 'text' || el.type === 'button') {
+                                el.value = translations[lang][key];
+                            }
+                        } else {
+                            el.textContent = translations[lang][key];
+                        }
+                    }
+                });
+                
+                // 更新具有data-i18n-placeholder属性的元素
+                document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+                    const key = el.getAttribute('data-i18n-placeholder');
+                    if (key && translations[lang][key]) {
+                        el.placeholder = translations[lang][key];
+                    }
+                });
+                
+                // 更新图表的标题和标签（如果存在）
+                if (window.radarChart) {
+                    try {
+                        window.radarChart.options.plugins.title.text = translations[lang]['radarChartTitle'] || 'Pose Comparison';
+                        
+                        // 更新图表上的标签
+                        if (window.radarChart.data.labels) {
+                            const newLabels = [];
+                            const originalLabels = ['leftArm', 'rightArm', 'leftBody', 'rightBody', 'leftLeg', 'rightLeg'];
+                            
+                            originalLabels.forEach(label => {
+                                if (translations[lang][label]) {
+                                    newLabels.push(translations[lang][label]);
+                                } else {
+                                    // 如果没有翻译，使用原始标签
+                                    newLabels.push(label);
+                                }
+                            });
+                            
+                            window.radarChart.data.labels = newLabels;
+                        }
+                        
+                        // 更新图表的数据集标签
+                        if (window.radarChart.data.datasets) {
+                            window.radarChart.data.datasets.forEach(dataset => {
+                                if (dataset.label === 'User Angles' || dataset.label === '用户角度') {
+                                    dataset.label = translations[lang]['userAngles'] || 'User Angles';
+                                } else if (dataset.label === 'Standard Angles' || dataset.label === '标准角度') {
+                                    dataset.label = translations[lang]['standardAngles'] || 'Standard Angles';
+                                }
+                            });
+                        }
+                        
+                        // 更新图表
+                        window.radarChart.update();
+                    } catch (error) {
+                        console.error('Error updating chart labels:', error);
+                    }
+                }
+                
+                // 更新确认文本
+                if (translations[lang]['deleteConfirm']) {
+                    deleteConfirmText = translations[lang]['deleteConfirm'];
+                }
+                
+                // 更新语言切换按钮文本
+                const langButton = document.getElementById('currentLang');
+                if (langButton) {
+                    langButton.textContent = lang === 'zh' ? '切换到英文' : 'Switch to Chinese';
+                }
+                
+                // 重新生成反馈内容（如果有训练结果）
+                if (lastTrainingResults.userAngles && lastTrainingResults.standardAngles) {
+                    regenerateFeedback();
+                }
+            }
+
+            // Function to get translation for a key
+            function getTranslation(key) {
+                return translations[currentLanguage][key] || key;
+            }
+
+            // Function to update chart labels when language changes
+            function updateChartLabels() {
+                if (window.radarChart) {
+                    const labels = [
+                        getTranslation('leftArm'),
+                        getTranslation('rightArm'),
+                        getTranslation('leftBody'),
+                        getTranslation('rightBody'),
+                        getTranslation('leftLeg'),
+                        getTranslation('rightLeg')
+                    ];
+                    
+                    window.radarChart.data.labels = labels;
+                    window.radarChart.data.datasets[0].label = getTranslation('userPose');
+                    window.radarChart.data.datasets[1].label = getTranslation('standardPose');
+                    
+                    // Update chart title if it exists
+                    if (window.radarChart.options.plugins.title) {
+                        // 使用全局存储的匹配百分比
+                        let percentage = '0';
+                        if (lastTrainingResults.matchPercentage) {
+                            percentage = lastTrainingResults.matchPercentage;
+                        }
+                        window.radarChart.options.plugins.title.text = `${selectedPose} ${getTranslation('comparison')} (${getTranslation('matchPercent')}: ${percentage}%)`;
+                    }
+                    
+                    window.radarChart.update();
+                }
+            }
+
+            // 重新生成反馈内容的函数
+            function regenerateFeedback() {
+                const { userAngles, standardAngles, matchStatus, matchCount, matchPercentage, nonMatchingJoints, usedSwappedLegs } = lastTrainingResults;
+                
+                // 生成针对性建议
+                let specificSuggestions = '';
+                
+                if (nonMatchingJoints.length > 0) {
+                    specificSuggestions = `<p>${getTranslation('jointImprovement')}: <strong>` + 
+                        nonMatchingJoints.map(joint => getTranslation(joint)).join('</strong>, <strong>') + '</strong></p>';
+                    specificSuggestions += `<p>${getTranslation('suggestions')}: </p><ul>`;
+                    
+                    nonMatchingJoints.forEach(key => {
+                        const userValue = Math.round(userAngles[key]);
+                        const stdValue = Math.round(standardAngles[key]);
+                        
+                        if (userValue > stdValue) {
+                            specificSuggestions += `<li><strong>${getTranslation(key)}</strong>: ${getTranslation('angleTooLarge')} (${userValue}°), ${getTranslation('shouldBe')} ${stdValue}°</li>`;
+                        } else {
+                            specificSuggestions += `<li><strong>${getTranslation(key)}</strong>: ${getTranslation('angleTooSmall')} (${userValue}°), ${getTranslation('shouldBe')} ${stdValue}°</li>`;
+                        }
+                    });
+                    
+                    specificSuggestions += '</ul>';
+                } else {
+                    specificSuggestions = `<p>${getTranslation('congratulations')}</p>`;
+                }
+                
+                // 如果使用了腿部互换，添加提示信息
+                let legSwapInfo = '';
+                if (usedSwappedLegs) {
+                    legSwapInfo = `<p style="background-color: rgba(255, 159, 10, 0.1); padding: 10px; border-radius: 8px; border-left: 3px solid var(--apple-warning);">
+                        <strong>${getTranslation('legSwapDetected')}</strong>: ${getTranslation('legSwapExplanation')}
+                    </p>`;
+                }
+                
+                // 更新反馈文本
+                feedbackText.innerHTML = `
+                    <p>${getTranslation('trainingComplete')} <strong>${selectedPose}</strong>!</p>
+                    ${legSwapInfo}
+                    <p>${getTranslation('overallMatch')}: <strong style="color: ${matchPercentage >= 75 ? 'var(--apple-success)' : matchPercentage >= 50 ? 'var(--apple-warning)' : 'var(--apple-error)'}">${matchPercentage}%</strong> (${getTranslation('matchCount')}: ${matchCount}/6)</p>
+                    <p>${getTranslation('comparison')}:</p>
+                    <ul>
+                        <li>${getTranslation('leftArm')}: ${Math.round(userAngles.leftArm)}° (${getTranslation('standardPose')} ${Math.round(standardAngles.leftArm)}°) - 
+                            ${getTranslation('deviation')} ${Math.round(deviations.leftArm)}% 
+                            ${matchStatus.leftArm ? '<span style="color:var(--apple-success)">✓</span>' : '<span style="color:var(--apple-error)">✗</span>'}
+                        </li>
+                        <li>${getTranslation('rightArm')}: ${Math.round(userAngles.rightArm)}° (${getTranslation('standardPose')} ${Math.round(standardAngles.rightArm)}°) - 
+                            ${getTranslation('deviation')} ${Math.round(deviations.rightArm)}% 
+                            ${matchStatus.rightArm ? '<span style="color:var(--apple-success)">✓</span>' : '<span style="color:var(--apple-error)">✗</span>'}
+                        </li>
+                        <li>${getTranslation('leftBody')}: ${Math.round(userAngles.leftBody)}° (${getTranslation('standardPose')} ${Math.round(standardAngles.leftBody)}°) - 
+                            ${getTranslation('deviation')} ${Math.round(deviations.leftBody)}% 
+                            ${matchStatus.leftBody ? '<span style="color:var(--apple-success)">✓</span>' : '<span style="color:var(--apple-error)">✗</span>'}
+                        </li>
+                        <li>${getTranslation('rightBody')}: ${Math.round(userAngles.rightBody)}° (${getTranslation('standardPose')} ${Math.round(standardAngles.rightBody)}°) - 
+                            ${getTranslation('deviation')} ${Math.round(deviations.rightBody)}% 
+                            ${matchStatus.rightBody ? '<span style="color:var(--apple-success)">✓</span>' : '<span style="color:var(--apple-error)">✗</span>'}
+                        </li>
+                        <li>${getTranslation('leftLeg')}: ${Math.round(userAngles.leftLeg)}° (${getTranslation('standardPose')} ${Math.round(standardAngles.leftLeg)}°) - 
+                            ${getTranslation('deviation')} ${Math.round(deviations.leftLeg)}% 
+                            ${matchStatus.leftLeg ? '<span style="color:var(--apple-success)">✓</span>' : '<span style="color:var(--apple-error)">✗</span>'}
+                        </li>
+                        <li>${getTranslation('rightLeg')}: ${Math.round(userAngles.rightLeg)}° (${getTranslation('standardPose')} ${Math.round(standardAngles.rightLeg)}°) - 
+                            ${getTranslation('deviation')} ${Math.round(deviations.rightLeg)}% 
+                            ${matchStatus.rightLeg ? '<span style="color:var(--apple-success)">✓</span>' : '<span style="color:var(--apple-error)">✗</span>'}
+                        </li>
+                    </ul>
+                    ${specificSuggestions}
+                    <p>${getTranslation('radarChartDesc')}</p>
+                `;
+                
+                // 如果需要，更新雷达图
+                if (window.radarChart) {
+                    updateChartLabels();
+                }
+            }
+
+            // Function to show save dialog
+            function showSaveDialog() {
+                // 移除任何已存在的对话框
+                const existingDialog = document.querySelector('.save-dialog');
+                const existingOverlay = document.querySelector('.save-dialog-overlay');
+                
+                if (existingDialog) {
+                    document.body.removeChild(existingDialog);
+                }
+                if (existingOverlay) {
+                    document.body.removeChild(existingOverlay);
+                }
+                
+                // 创建对话框元素
+                const dialog = document.createElement('div');
+                dialog.className = 'save-dialog';
+                dialog.innerHTML = `
+                    <div class="save-dialog-title">${getTranslation('saveOptions')}</div>
+                    <div class="save-dialog-option">
+                        <input type="checkbox" id="saveImageCheckbox" checked>
+                        <label for="saveImageCheckbox">${getTranslation('saveImage')}</label>
+                    </div>
+                    <div class="save-dialog-option">
+                        <input type="checkbox" id="saveRecordCheckbox" checked>
+                        <label for="saveRecordCheckbox">${getTranslation('saveRecord')}</label>
+                    </div>
+                    <div class="save-dialog-buttons">
+                        <button class="save-dialog-button primary" id="confirmSaveButton">${getTranslation('save')}</button>
+                        <button class="save-dialog-button secondary" id="cancelSaveButton">${getTranslation('cancel')}</button>
+                    </div>
+                `;
+                
+                // 添加对话框到页面
+                document.body.appendChild(dialog);
+                
+                // 显示遮罩层
+                const overlay = document.createElement('div');
+                overlay.className = 'save-dialog-overlay';
+                document.body.appendChild(overlay);
+                
+                // 绑定确认按钮事件
+                document.getElementById('confirmSaveButton').addEventListener('click', function() {
+                    const saveImage = document.getElementById('saveImageCheckbox').checked;
+                    const saveRecord = document.getElementById('saveRecordCheckbox').checked;
+                    
+                    if (!saveImage && !saveRecord) {
+                        alert(getTranslation('pleaseSelect'));
+                        return;
+                    }
+                    
+                    // 隐藏对话框
+                    hideSaveDialog();
+                    
+                    // 执行保存操作
+                    performSave('radarChartContainer', saveImage, saveRecord);
+                });
+                
+                // 绑定取消按钮事件
+                document.getElementById('cancelSaveButton').addEventListener('click', hideSaveDialog);
+            }
+
+            // 隐藏保存对话框
+            function hideSaveDialog() {
+                const dialog = document.querySelector('.save-dialog');
+                const overlay = document.querySelector('.save-dialog-overlay');
+                
+                if (dialog) {
+                    document.body.removeChild(dialog);
+                }
+                if (overlay) {
+                    document.body.removeChild(overlay);
+                }
+            }
+
+            // 修改后的保存函数，根据用户选择执行不同操作
+            function performSave(containerId, saveImage, saveRecord) {
+                const container = document.getElementById(containerId);
+                
+                // 创建加载状态覆盖层
+                const loadingOverlay = document.createElement('div');
+                loadingOverlay.classList.add('loading-overlay');
+                
+                const loadingMessage = document.createElement('div');
+                loadingMessage.classList.add('loading-message');
+                loadingMessage.textContent = getTranslation('saving');
+                
+                loadingOverlay.appendChild(loadingMessage);
+                container.appendChild(loadingOverlay);
+                
+                try {
+                    // 保存训练记录到服务器（如果选择了该选项）
+                    if (saveRecord) {
+                        const trainingRecord = {
+                            pose_name: selectedPose,
+                            timestamp: new Date().toISOString(),
+                            user_angles: lastTrainingResults.userAngles,
+                            standard_angles: lastTrainingResults.standardAngles,
+                            match_percentage: lastTrainingResults.matchPercentage,
+                            match_count: lastTrainingResults.matchCount,
+                            non_matching_joints: lastTrainingResults.nonMatchingJoints,
+                            used_swapped_legs: lastTrainingResults.usedSwappedLegs,
+                            // 添加更详细的角度信息
+                            angle_details: {
+                                leftArm: {
+                                    user: lastTrainingResults.userAngles.leftArm,
+                                    standard: lastTrainingResults.standardAngles.leftArm,
+                                    difference: Math.abs(lastTrainingResults.userAngles.leftArm - lastTrainingResults.standardAngles.leftArm),
+                                    is_matching: !lastTrainingResults.nonMatchingJoints.includes('leftArm')
+                                },
+                                rightArm: {
+                                    user: lastTrainingResults.userAngles.rightArm,
+                                    standard: lastTrainingResults.standardAngles.rightArm,
+                                    difference: Math.abs(lastTrainingResults.userAngles.rightArm - lastTrainingResults.standardAngles.rightArm),
+                                    is_matching: !lastTrainingResults.nonMatchingJoints.includes('rightArm')
+                                },
+                                leftBody: {
+                                    user: lastTrainingResults.userAngles.leftBody,
+                                    standard: lastTrainingResults.standardAngles.leftBody,
+                                    difference: Math.abs(lastTrainingResults.userAngles.leftBody - lastTrainingResults.standardAngles.leftBody),
+                                    is_matching: !lastTrainingResults.nonMatchingJoints.includes('leftBody')
+                                },
+                                rightBody: {
+                                    user: lastTrainingResults.userAngles.rightBody,
+                                    standard: lastTrainingResults.standardAngles.rightBody,
+                                    difference: Math.abs(lastTrainingResults.userAngles.rightBody - lastTrainingResults.standardAngles.rightBody),
+                                    is_matching: !lastTrainingResults.nonMatchingJoints.includes('rightBody')
+                                },
+                                leftLeg: {
+                                    user: lastTrainingResults.userAngles.leftLeg,
+                                    standard: lastTrainingResults.standardAngles.leftLeg,
+                                    difference: Math.abs(lastTrainingResults.userAngles.leftLeg - lastTrainingResults.standardAngles.leftLeg),
+                                    is_matching: !lastTrainingResults.nonMatchingJoints.includes('leftLeg')
+                                },
+                                rightLeg: {
+                                    user: lastTrainingResults.userAngles.rightLeg,
+                                    standard: lastTrainingResults.standardAngles.rightLeg,
+                                    difference: Math.abs(lastTrainingResults.userAngles.rightLeg - lastTrainingResults.standardAngles.rightLeg),
+                                    is_matching: !lastTrainingResults.nonMatchingJoints.includes('rightLeg')
+                                }
+                            },
+
+                            // 直接使用姿势名称作为描述，不再调用已删除的函数
+                            pose_description: selectedPose
+                        };
+                        
+                        // 发送数据到服务器
+                        fetch('/save_training_record', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify(trainingRecord)
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            console.log('训练记录保存结果:', data);
+                            if (!data.success) {
+                                console.error('保存训练记录失败:', data.message);
+                            }
+                        })
+                        .catch(error => {
+                            console.error('保存训练记录出错:', error);
+                        });
+                    }
+                    
+                    // 下载雷达图（如果选择了该选项）
+                    if (saveImage) {
+                        // 使用Chart.js直接从canvas获取图像
+                        if (window.radarChart && window.radarChart.canvas) {
+                            const canvas = window.radarChart.canvas;
+                            const filename = `yoga-pose-${selectedPose}-${new Date().toISOString().slice(0,10)}.png`;
+                            
+                            try {
+                                canvas.toBlob(function(blob) {
+                                    try {
+                                        // 使用Blob URL创建下载链接
+                                        const url = URL.createObjectURL(blob);
+                                        const link = document.createElement('a');
+                                        link.download = filename;
+                                        link.href = url;
+                                        link.style.display = 'none';
+                                        document.body.appendChild(link);
+                                        
+                                        // 触发下载
+                                        link.click();
+                                        
+                                        // 清理
+                                        setTimeout(function() {
+                                            try {
+                                                // 安全移除下载链接
+                                                if (document.body.contains(link)) {
+                                                    document.body.removeChild(link);
+                                                }
+                                                // 释放Blob URL
+                                                URL.revokeObjectURL(url);
+                                                
+                                                // 显示成功消息
+                                                showSaveSuccess(container, loadingOverlay);
+                                            } catch (e) {
+                                                console.error("资源清理时出错:", e);
+                                                // 确保即使出错也能显示成功消息
+                                                showSaveSuccess(container, loadingOverlay);
+                                            }
+                                        }, 100);
+                                    } catch (linkError) {
+                                        console.error('创建下载链接失败:', linkError);
+                                        // 显示重试按钮而不是错误消息
+                                        if (container && loadingOverlay && container.contains(loadingOverlay)) {
+                                            container.removeChild(loadingOverlay);
+                                        }
+                                        showDownloadRetryButton(container, containerId, saveImage, saveRecord);
+                                    }
+                                }, 'image/png', 1.0); // 添加质量参数确保高质量输出
+                            } catch (error) {
+                                console.error('Canvas to Blob failed:', error);
+                                // 降级到直接使用dataURL方法
+                                try {
+                                    const link = document.createElement('a');
+                                    link.download = filename;
+                                    link.href = canvas.toDataURL('image/png');
+                                    link.style.display = 'none';
+                                    document.body.appendChild(link);
+                                    link.click();
+                                    
+                                    // 清理
+                                    setTimeout(function() {
+                                        try {
+                                            if (document.body.contains(link)) {
+                                                document.body.removeChild(link);
+                                            }
+                                            showSaveSuccess(container, loadingOverlay);
+                                        } catch (e) {
+                                            console.error("资源清理时出错:", e);
+                                            showSaveSuccess(container, loadingOverlay);
+                                        }
+                                    }, 100);
+                                } catch (dataUrlError) {
+                                    console.error('DataURL fallback failed:', dataUrlError);
+                                    if (container && loadingOverlay && container.contains(loadingOverlay)) {
+                                        container.removeChild(loadingOverlay);
+                                    }
+                                    showDownloadRetryButton(container, containerId, saveImage, saveRecord);
+                                }
+                            }
+                            return;
+                        }
+                        
+                        // 添加其他降级备选方案
+                        showSaveSuccess(container, loadingOverlay);
+                    } else {
+                        // 如果只选择了保存记录而没有选择下载图表，也显示成功消息
+                        showSaveSuccess(container, loadingOverlay);
+                    }
+                } catch (error) {
+                    console.error('Save operation failed:', error);
+                    if (container.contains(loadingOverlay)) {
+                        container.removeChild(loadingOverlay);
+                    }
+                    showDownloadRetryButton(container, containerId, saveImage, saveRecord);
+                }
+            }
+            
+            // 辅助函数：显示下载重试按钮
+            function showDownloadRetryButton(container, containerId, saveImageFunc, saveRecordFunc) {
+                // Verify container exists
+                if (!container) return;
+                
+                // Create retry button container
+                const retryContainer = document.createElement('div');
+                retryContainer.className = 'retry-container';
+                retryContainer.style.textAlign = 'center';
+                retryContainer.style.padding = '10px';
+                
+                // Create message
+                const message = document.createElement('p');
+                message.textContent = '下载失败，请点击重试';
+                message.style.color = '#ff4757';
+                message.style.margin = '0 0 10px 0';
+                
+                // Create retry button
+                const retryButton = document.createElement('button');
+                retryButton.textContent = '重试下载';
+                retryButton.className = 'btn btn-primary';
+                retryButton.style.marginRight = '10px';
+                
+                // Create close button
+                const closeButton = document.createElement('button');
+                closeButton.textContent = '关闭';
+                closeButton.className = 'btn btn-secondary';
+                
+                // Add event listeners
+                retryButton.addEventListener('click', function() {
+                    // Remove the retry container
+                    if (container.contains(retryContainer)) {
+                        container.removeChild(retryContainer);
+                    }
+                    
+                    // Determine which function to call based on container ID
+                    if (containerId === 'saveImageContainer') {
+                        saveImageFunc();
+                    } else if (containerId === 'saveRecordContainer') {
+                        saveRecordFunc();
+                    }
+                });
+                
+                closeButton.addEventListener('click', function() {
+                    if (container.contains(retryContainer)) {
+                        container.removeChild(retryContainer);
+                    }
+                });
+                
+                // Append elements
+                retryContainer.appendChild(message);
+                retryContainer.appendChild(retryButton);
+                retryContainer.appendChild(closeButton);
+                container.appendChild(retryContainer);
+            }
+
+            // 以下重复代码删除，使用上方完整版本
+            // Add event listener for floating menu
+            // floatMenuButton.addEventListener('click', function() {
+            //     floatMenuItems.classList.toggle('active');
+            //     // Rotate menu icon when open
+            //     const menuIcon = floatMenuButton.querySelector('.float-menu-icon');
+            //     if (floatMenuItems.classList.contains('active')) {
+            //         menuIcon.style.transform = 'rotate(90deg)';
+            //     } else {
+            //         menuIcon.style.transform = 'rotate(0)';
+            //     }
+            // });
+            
+            // Close menu when clicking outside
+            // document.addEventListener('click', function(event) {
+            //     if (!floatMenuButton.contains(event.target) && !floatMenuItems.contains(event.target)) {
+            //         floatMenuItems.classList.remove('active');
+            //         const menuIcon = floatMenuButton.querySelector('.float-menu-icon');
+            //         menuIcon.style.transform = 'rotate(0)';
+            //     }
+            // });
+            
+            // 保留这个函数定义，只删除重复调用
+            // Update menu item text when language changes
+            function updateFloatMenuText() {
+                document.querySelectorAll('.float-menu-item').forEach(item => {
+                    const key = item.getAttribute('data-i18n');
+                    if (key && translations[currentLanguage] && translations[currentLanguage][key]) {
+                        const span = item.querySelector('span');
+                        if (span) {
+                            span.textContent = translations[currentLanguage][key];
+                        }
+                    }
+                });
+            }
+            
+            // 不再重复调用
+            // updateFloatMenuText();
+            
+            // 确保语言切换时也更新浮动菜单文本
+            const originalUpdateLanguage = updateLanguage;
+            updateLanguage = function(lang) {
+                originalUpdateLanguage(lang);
+                updateFloatMenuText();
+            };
+
+            // 开始训练按钮事件处理
+            const startTrainingBtn = document.getElementById('startTrainingBtn');
+            if (startTrainingBtn) {
+                startTrainingBtn.addEventListener('click', function() {
+                    startTraining();
+                });
+            }
+
+            // 判断是否显示视频替代方案提示
+            function showVideoAlternative(message) {
+                const videoAlternativeEl = document.getElementById('videoAlternative');
+                const videoAlternativeMsg = document.getElementById('videoAlternativeMessage');
+                
+                if(videoAlternativeEl && videoAlternativeMsg) {
+                    videoAlternativeMsg.textContent = message;
+                    videoAlternativeEl.style.display = 'flex';
+                }
+            }
+
+            // 处理左右腿可能互换的情况，返回最佳匹配方案
+            function processLegSwapping(avgAngles, standardAngles) {
+                const maxErrors = {
+                    leftArm: 30,
+                    rightArm: 30,
+                    leftBody: 30,
+                    rightBody: 30,
+                    leftLeg: 35,
+                    rightLeg: 35
+                };
+                
+                // 创建两种匹配方案：原始、左右腿互换
+                // 1. 原始方案
+                const originalDeviations = {};
+                const originalMatchStatus = {};
+                let originalMatchCount = 0;
+                
+                // 2. 左右腿互换方案
+                const legSwappedAngles = {
+                    ...avgAngles,
+                    leftLeg: avgAngles.rightLeg,
+                    rightLeg: avgAngles.leftLeg
+                };
+                const legSwappedDeviations = {};
+                const legSwappedMatchStatus = {};
+                let legSwappedMatchCount = 0;
+                
+                // 评估原始方案
+                for (const key in avgAngles) {
+                    if (standardAngles[key] !== 0) {
+                        // 计算原始偏差
+                        const error = Math.abs(avgAngles[key] - standardAngles[key]);
+                        // 计算偏差百分比
+                        originalDeviations[key] = error / standardAngles[key] * 100;
+                        // 判断是否匹配
+                        originalMatchStatus[key] = error <= maxErrors[key];
+                        // 计数匹配的关节
+                        if (originalMatchStatus[key]) {
+                            originalMatchCount++;
+                        }
+                    } else {
+                        originalDeviations[key] = 0;
+                        originalMatchStatus[key] = true;
+                        originalMatchCount++;
+                    }
+                    // 限制最大偏差为100%
+                    originalDeviations[key] = Math.min(originalDeviations[key], 100);
+                }
+                
+                // 评估左右腿互换方案
+                for (const key in legSwappedAngles) {
+                    if (standardAngles[key] !== 0) {
+                        // 计算互换后偏差
+                        const error = Math.abs(legSwappedAngles[key] - standardAngles[key]);
+                        // 计算偏差百分比
+                        legSwappedDeviations[key] = error / standardAngles[key] * 100;
+                        // 判断是否匹配
+                        legSwappedMatchStatus[key] = error <= maxErrors[key];
+                        // 计数匹配的关节
+                        if (legSwappedMatchStatus[key]) {
+                            legSwappedMatchCount++;
+                        }
+                    } else {
+                        legSwappedDeviations[key] = 0;
+                        legSwappedMatchStatus[key] = true;
+                        legSwappedMatchCount++;
+                    }
+                    // 限制最大偏差为100%
+                    legSwappedDeviations[key] = Math.min(legSwappedDeviations[key], 100);
+                }
+                
+                // 确定哪种方案最佳
+                let deviations, matchStatus, matchCount;
+                let usedSwappedLegs = false;
+                
+                if (legSwappedMatchCount > originalMatchCount) {
+                    // 如果左右腿互换方案匹配度更高，使用互换方案
+                    deviations = legSwappedDeviations;
+                    matchStatus = legSwappedMatchStatus;
+                    matchCount = legSwappedMatchCount;
+                    usedSwappedLegs = true;
+                    console.log("使用左右腿互换匹配: 匹配关节数:", matchCount);
+                } else {
+                    // 否则使用原始方案
+                    deviations = originalDeviations;
+                    matchStatus = originalMatchStatus;
+                    matchCount = originalMatchCount;
+                    console.log("使用原始匹配: 匹配关节数:", matchCount);
+                }
+                
+                return {
+                    deviations,
+                    matchStatus,
+                    matchCount,
+                    usedSwappedLegs
+                };
+            }
+            
+            // 获取呼吸指导
+            function getBreathingGuidance(poseName) {
+                // 尝试从训练记录中获取呼吸指导
+                fetch('/get_training_records')
+                    .then(response => response.json())
+                    .then(data => {
+                        const records = data.records || [];
+                        // 查找最近的相关记录
+                        const recentRecord = records.find(record => 
+                            record.pose_name === poseName && 
+                            record.yoga_knowledge && 
+                            record.yoga_knowledge.breathing
+                        );
+                        
+                        if (recentRecord && recentRecord.yoga_knowledge.breathing) {
+                            // 显示呼吸指导
+                            const breathingContainer = document.getElementById('breathingGuidanceContainer');
+                            const breathingText = document.getElementById('breathingText');
+                            
+                            if (breathingContainer && breathingText) {
+                                breathingText.textContent = recentRecord.yoga_knowledge.breathing;
+                                breathingContainer.style.display = 'flex';
+                            }
+                        } else {
+                            // 如果没有找到呼吸指导，显示默认信息
+                            const breathingContainer = document.getElementById('breathingGuidanceContainer');
+                            const breathingText = document.getElementById('breathingText');
+                            
+                            if (breathingContainer && breathingText) {
+                                breathingText.textContent = '保持均匀深长的鼻呼吸，避免屏息。';
+                                breathingContainer.style.display = 'flex';
+                            }
+                        }
+                    })
+                    .catch(error => {
+                        console.error('获取呼吸指导失败:', error);
+                        // 显示默认呼吸指导
+                        const breathingContainer = document.getElementById('breathingGuidanceContainer');
+                        const breathingText = document.getElementById('breathingText');
+                        
+                        if (breathingContainer && breathingText) {
+                            breathingText.textContent = '保持均匀深长的鼻呼吸，避免屏息。';
+                            breathingContainer.style.display = 'flex';
+                        }
+                    });
+            }
+            
+            // 摄像头状态控制
+            function toggleCamera() {
+                // ... existing code ...
+            }
+
+            // 视频选择模态框处理
+            const videoModal = document.getElementById('videoModal');
+            const videoSelectBtn = document.getElementById('videoSelectBtn');
+            const videoModalClose = document.getElementById('videoModalClose');
+            const videoFileInput = document.getElementById('videoFileInput');
+            const videoFileName = document.getElementById('videoFileName');
+            const videoItems = document.querySelectorAll('.video-item');
+            const selectedVideoNameInput = document.getElementById('selectedVideoName');
+            
+            // 点击"使用视频"按钮打开模态框
+            videoSelectBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                videoModal.style.display = 'flex';
+            });
+            
+            // 关闭模态框
+            videoModalClose.addEventListener('click', function() {
+                videoModal.style.display = 'none';
+            });
+            
+            // 点击模态框外部关闭
+            window.addEventListener('click', function(e) {
+                if (e.target == videoModal) {
+                    videoModal.style.display = 'none';
+                }
+            });
+            
+            // 更新所选文件名
+            videoFileInput.addEventListener('change', function() {
+                if (this.files.length > 0) {
+                    videoFileName.textContent = this.files[0].name;
+                } else {
+                    videoFileName.textContent = '未选择文件';
+                }
+            });
+            
+            // 处理视频项点击事件
+            videoItems.forEach(item => {
+                item.addEventListener('click', function() {
+                    // 移除所有项的选中状态
+                    videoItems.forEach(i => i.classList.remove('active'));
+                    // 添加当前项的选中状态
+                    this.classList.add('active');
+                    // 更新隐藏输入字段的值
+                    selectedVideoNameInput.value = this.getAttribute('data-video-name');
+                });
+            });
+            
+            // 监听视频源变化，更新显示尺寸
+            const videoSourceLinks = document.querySelectorAll('.source-button[href*="source="]');
+            videoSourceLinks.forEach(link => {
+                link.addEventListener('click', function() {
+                    // 延迟更新显示尺寸，等待页面重新加载
+                    setTimeout(updateVideoDisplaySize, 500);
+                });
+            });
+            
+            // 移除显示模式切换功能，直接使用大屏默认设置
+        });
+
+        // 以下是辅助函数声明
+        // 添加左右腿切换处理功能
+        function processLegSwapping(angles, standardAngles, maxErrors) {
+            // 创建三种匹配方案：原始、仅左右腿互换
+            // 1. 原始方案
+            const originalMatchStatus = {};
+            let originalMatchCount = 0;
+            
+            // 2. 左右腿互换方案
+            const legSwappedAngles = {
+                ...angles,
+                leftLeg: angles.rightLeg,
+                rightLeg: angles.leftLeg
+            };
+            const legSwappedMatchStatus = {};
+            let legSwappedMatchCount = 0;
+            
+            // 评估原始方案
+            for (const key in angles) {
+                if (standardAngles[key] !== 0) {
+                    // 计算原始偏差
+                    const error = Math.abs(angles[key] - standardAngles[key]);
+                    // 判断是否匹配
+                    originalMatchStatus[key] = error <= maxErrors[key];
+                    // 计数匹配的关节
+                    if (originalMatchStatus[key]) {
+                        originalMatchCount++;
+                    }
+                } else {
+                    originalMatchStatus[key] = true;
+                    originalMatchCount++;
+                }
+            }
+            
+            // 评估左右腿互换方案
+            for (const key in legSwappedAngles) {
+                if (standardAngles[key] !== 0) {
+                    // 计算互换后偏差
+                    const error = Math.abs(legSwappedAngles[key] - standardAngles[key]);
+                    // 判断是否匹配
+                    legSwappedMatchStatus[key] = error <= maxErrors[key];
+                    // 计数匹配的关节
+                    if (legSwappedMatchStatus[key]) {
+                        legSwappedMatchCount++;
+                    }
+                } else {
+                    legSwappedMatchStatus[key] = true;
+                    legSwappedMatchCount++;
+                }
+            }
+            
+            // 确定哪种方案最佳
+            let matchStatus, matchCount;
+            let usedSwappedLegs = false;
+            let finalAngles = angles;
+            
+            if (legSwappedMatchCount > originalMatchCount) {
+                // 如果左右腿互换方案匹配度更高，使用互换方案
+                matchStatus = legSwappedMatchStatus;
+                matchCount = legSwappedMatchCount;
+                usedSwappedLegs = true;
+                finalAngles = legSwappedAngles;
+                console.log("使用左右腿互换匹配: 匹配关节数:", matchCount);
+            } else {
+                // 否则使用原始方案
+                matchStatus = originalMatchStatus;
+                matchCount = originalMatchCount;
+                console.log("使用原始匹配: 匹配关节数:", matchCount);
+            }
+            
+            return {
+                angles: finalAngles,
+                matchStatus: matchStatus,
+                matchCount: matchCount,
+                usedSwappedLegs: usedSwappedLegs
+            };
+        }
+
+        // 删除未使用的getPoseDescription函数
+        // 添加获取姿势描述的辅助函数
+        // function getPoseDescription(poseName) {
+        //     // 瑜伽姿势的描述
+        //     const poseDescriptions = {
+        //         "Trikonasana": "三角式有助于减少多余体重，增强腿部和手臂力量，改善消化。",
+        //         "Virabadrasana": "战士式增强腿部力量，改善平衡感，提高注意力，灌输决心和韧性。",
+        //         "Vrikshasana": "树式改善背部和腿部的力量，定期练习有助于提高平衡感。",
+        //         "Bhujangasana": "眼镜蛇式改善血液循环，增强下背部和手臂肌肉。",
+        //         "Sukhasana": "轻松坐式使心灵平静，增强内心平和，有助于改善身体姿势。",
+        //         "Chakrasana": "轮式缓解背部和肾脏疼痛，有助于刺激甲状腺和脑垂体。",
+        //         "Balasana": "婴儿式在精神上、身体上和情感上都能让人放松。",
+        //         "Shavasana": "尸式是一个放松姿势，放松全身，提高记忆力和注意力。"
+        //     };
+        //     
+        //     return poseDescriptions[poseName] || `${poseName}瑜伽姿势`;
+        // }
+    </script>
+</body>
+</html>

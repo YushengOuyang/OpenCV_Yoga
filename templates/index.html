@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Yoga Asanas</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;600;700;800;900&display=swap">
+    <style>
+        :root {
+            --apple-background: #f5f7fa;
+            --apple-panel: #ffffff;
+            --apple-accent: #0071e3;
+            --apple-accent-hover: #0077ED;
+            --apple-text-primary: #1d1d1f;
+            --apple-text-secondary: #86868b;
+            --apple-border: #d2d2d7;
+            --apple-success: #32d74b;
+            --apple-error: #ff453a;
+            --apple-warning: #ff9f0a;
+            --apple-border-radius: 12px;
+            --apple-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+            --apple-font: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro', sans-serif;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: var(--apple-font);
+            background-color: var(--apple-background);
+            color: var(--apple-text-primary);
+            min-height: 100vh;
+            padding: 48px 24px;
+        }
+        
+        h1 {
+            text-align: center;
+            font-size: 48px;
+            font-weight: 700;
+            margin-bottom: 48px;
+            background: linear-gradient(135deg, var(--apple-accent), #9370DB);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            letter-spacing: -0.5px;
+        }
+        
+        .subtitle {
+            text-align: center;
+            font-size: 20px;
+            font-weight: 400;
+            margin-top: -32px;
+            margin-bottom: 40px;
+            color: var(--apple-text-secondary);
+        }
+        
+        .wrapper {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .row {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 32px;
+            margin-bottom: 32px;
+        }
+        
+        .card {
+            position: relative;
+            width: 300px;
+            height: 400px;
+            perspective: 1500px;
+        }
+        
+        .card .content {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            transform-style: preserve-3d;
+            transition: transform 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        
+        .card:hover .content {
+            transform: rotateY(180deg);
+        }
+        
+        .card .front, .card .back {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            border-radius: var(--apple-border-radius);
+            overflow: hidden;
+            box-shadow: var(--apple-shadow);
+        }
+        
+        .card .front {
+            background-size: cover;
+            background-position: center;
+        }
+        
+        .card .front::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.1), rgba(0,0,0,0.8));
+        }
+        
+        .card .back {
+            background-color: var(--apple-panel);
+            transform: rotateY(180deg);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 32px;
+            text-align: center;
+        }
+        
+        .card .inner {
+            position: relative;
+            z-index: 2;
+            padding: 24px;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+        }
+        
+        .card .inner h2 {
+            color: white;
+            font-size: 28px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        }
+        
+        .description {
+            font-size: 16px;
+            line-height: 1.6;
+            color: var(--apple-text-primary);
+            margin-bottom: 24px;
+        }
+        
+        .try-it-out {
+            display: flex;
+            justify-content: center;
+            gap: 16px;
+            margin-top: 48px;
+            flex-wrap: wrap;
+        }
+        
+        .try-it-out button {
+            background-color: var(--apple-accent);
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 24px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-family: var(--apple-font);
+            letter-spacing: 0.5px;
+            min-width: 160px;
+        }
+        
+        .try-it-out button:hover {
+            background-color: var(--apple-accent-hover);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(0, 113, 227, 0.2);
+        }
+        
+        .try-it-out button:active {
+            transform: scale(0.98);
+        }
+        
+        /* Float menu button styles */
+        .float-menu-container {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            z-index: 1000;
+        }
+        
+        .float-menu-button {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background-color: var(--apple-accent);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .float-menu-button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+        }
+        
+        .float-menu-icon {
+            width: 24px;
+            height: 24px;
+            stroke: white;
+            fill: none;
+            stroke-width: 2;
+            transition: transform 0.3s ease;
+        }
+        
+        .float-menu-items {
+            position: absolute;
+            bottom: 70px;
+            right: 0;
+            background-color: var(--apple-panel);
+            border-radius: var(--apple-border-radius);
+            box-shadow: var(--apple-shadow);
+            padding: 8px 0;
+            width: 160px;
+            transform: scale(0);
+            transform-origin: bottom right;
+            opacity: 0;
+            transition: all 0.3s ease;
+            pointer-events: none;
+        }
+        
+        .float-menu-items.active {
+            transform: scale(1);
+            opacity: 1;
+            pointer-events: all;
+        }
+        
+        .float-menu-item {
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            color: var(--apple-text-primary);
+            text-decoration: none;
+            transition: background-color 0.2s ease;
+        }
+        
+        .float-menu-item:hover {
+            background-color: rgba(0, 0, 0, 0.05);
+        }
+        
+        .float-menu-item-icon {
+            width: 18px;
+            height: 18px;
+            margin-right: 12px;
+            stroke: var(--apple-accent);
+            fill: none;
+            stroke-width: 2;
+        }
+    </style>
+</head>
+<body>
+    <!-- 浮动菜单 -->
+    <div class="float-menu-container">
+        <div class="float-menu-button" id="floatMenuButton">
+            <svg class="float-menu-icon" viewBox="0 0 24 24">
+                <line x1="3" y1="12" x2="21" y2="12"></line>
+                <line x1="3" y1="6" x2="21" y2="6"></line>
+                <line x1="3" y1="18" x2="21" y2="18"></line>
+            </svg>
+        </div>
+        <div class="float-menu-items" id="floatMenuItems">
+            <a href="/" class="float-menu-item" data-i18n="homeButton">
+                <svg class="float-menu-item-icon" viewBox="0 0 24 24">
+                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                    <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                </svg>
+                <span>首页</span>
+            </a>
+            <a href="/yoga_try" class="float-menu-item" data-i18n="tryYogaButton">
+                <svg class="float-menu-item-icon" viewBox="0 0 24 24">
+                    <path d="M18 8h1a4 4 0 0 1 0 8h-1"></path>
+                    <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path>
+                    <line x1="6" y1="1" x2="6" y2="4"></line>
+                    <line x1="10" y1="1" x2="10" y2="4"></line>
+                    <line x1="14" y1="1" x2="14" y2="4"></line>
+                </svg>
+                <span>尝试瑜伽</span>
+            </a>
+            <a href="/upload" class="float-menu-item" data-i18n="uploadButton">
+                <svg class="float-menu-item-icon" viewBox="0 0 24 24">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="17 8 12 3 7 8"></polyline>
+                    <line x1="12" y1="3" x2="12" y2="15"></line>
+                </svg>
+                <span>上传姿势</span>
+            </a>
+            <a href="/yoga_ai_chat" class="float-menu-item" data-i18n="aiChatButton">
+                <span>AI 对话</span>
+            </a>
+            <!-- 语言切换会通过JavaScript添加 -->
+        </div>
+    </div>
+    
+    <h1 data-i18n="pageTitle">YOGA ASANAS</h1>
+    <div class="subtitle" data-i18n="pageSubtitle">Discover the benefits of yoga poses for mind and body</div>
+    
+    <div class="wrapper">
+        <!-- First row of cards -->
+        <div class="row">
+            <div class="card">
+                <div class="content">
+                    <div class="front" style="background-image: url('static/img/Trikonasana.jpg');">
+                        <div class="inner">
+                            <h2>Trikonasana</h2>
+                        </div>
+                    </div>
+                    <div class="back">
+                        <div class="inner">
+                            <div class="description" data-i18n="trikonasanaDesc">
+                                It helps in reducing excess body weight, strengthens legs and arms, and helps in improving digestion.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="content">
+                    <div class="front" style="background-image: url('static/img/Virabadrasana.png');">
+                        <div class="inner">
+                            <h2>Virabadrasana</h2>
+                        </div>
+                    </div>
+                    <div class="back">
+                        <div class="inner">
+                            <div class="description" data-i18n="virabadrasanaDesc">
+                                It strengthens legs, improves balance, enhances focus, and instills a sense of determination and resilience.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="content">
+                    <div class="front" style="background-image: url('static/img/Vrikshasana.png');">
+                        <div class="inner">
+                            <h2>Vrikshasana</h2>
+                        </div>
+                    </div>
+                    <div class="back">
+                        <div class="inner">
+                            <div class="description" data-i18n="vrikshasanaDesc">
+                                It improves the strength of your back and legs and tends to improve your balance when practiced regularly.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+          
+        <!-- Second row of cards -->
+        <div class="row">
+            <div class="card">
+                <div class="content">
+                    <div class="front" style="background-image:url('static/img/Bhujangasana.png')">
+                        <div class="inner">
+                            <h2>Bhujangasana</h2>
+                        </div>
+                    </div>
+                    <div class="back">
+                        <div class="inner">
+                            <div class="description" data-i18n="bhujangasanaDesc">
+                                It improves blood circulation and strengthens the lower back and muscles of your arms.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="content">
+                    <div class="front" style="background-image: url('static/img/Sukhasana.png');">
+                        <div class="inner">
+                            <h2>Sukhasana</h2>
+                        </div>
+                    </div>
+                    <div class="back">
+                        <div class="inner">
+                            <div class="description" data-i18n="sukhasanaDesc">
+                                It calms your mind and enhances your peace of mind. It also helps in improving body posture.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="content">
+                    <div class="front" style="background-image:url('static/img/Chakrasana.png');">
+                        <div class="inner">
+                            <h2>Chakrasana</h2>
+                        </div>
+                    </div>
+                    <div class="back">
+                        <div class="inner">
+                            <div class="description" data-i18n="chakrasanaDesc">
+                                It cures back and kidney pain. It also helps in stimulating the thyroid and pituitary glands.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Third row of cards -->
+        <div class="row">
+            <div class="card">
+                <div class="content">
+                    <div class="front" style="background-image: url('static/img/Balasana.png');">
+                        <div class="inner">
+                            <h2>Balasana</h2>
+                        </div>
+                    </div>
+                    <div class="back">
+                        <div class="inner">
+                            <div class="description" data-i18n="balasanaDesc">
+                                This pose is mentally, physically, and emotionally relaxing.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="content">
+                    <div class="front" style="background-image: url('static/img/Shavasana.png');">
+                        <div class="inner">
+                            <h2>Shavasana</h2>
+                        </div>
+                    </div>
+                    <div class="back">
+                        <div class="inner">
+                            <div class="description" data-i18n="shavasanaDesc">
+                                It is a relaxation pose and hence relaxes the entire body. It improves memory and concentration and increases memory levels.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="try-it-out">
+        <a href="/yoga_try">
+            <button data-i18n="tryItOutButton">TRY IT OUT</button>
+        </a>
+        <a href="/upload">
+            <button data-i18n="uploadButton">UPLOAD</button>
+        </a>
+        <a href="/yoga_ai_chat">
+            <button data-i18n="aiChatButton">AI 对话</button>
+        </a>
+    </div>
+
+    <script>
+        // Language translation dictionary
+        const translations = {
+            zh: {
+                'pageTitle': '瑜伽体式',
+                'pageSubtitle': '发现瑜伽姿势对身心的益处',
+                'tryItOutButton': '立即尝试',
+                'uploadButton': '上传姿势',
+                'aiChatButton': 'AI 对话',
+                'trikonasanaDesc': '它有助于减少多余体重，增强腿部和手臂力量，改善消化。',
+                'virabadrasanaDesc': '它增强腿部力量，改善平衡感，提高注意力，灌输决心和韧性。',
+                'vrikshasanaDesc': '它改善背部和腿部的力量，定期练习有助于提高平衡感。',
+                'bhujangasanaDesc': '它改善血液循环，增强下背部和手臂肌肉。',
+                'sukhasanaDesc': '它使心灵平静，增强内心平和。还有助于改善身体姿势。',
+                'chakrasanaDesc': '它缓解背部和肾脏疼痛。还有助于刺激甲状腺和脑垂体。',
+                'balasanaDesc': '这个姿势在精神上、身体上和情感上都能让人放松。',
+                'shavasanaDesc': '这是一个放松姿势，因此能放松全身。它提高记忆力和注意力，增强记忆水平。',
+                'homeButton': '首页',
+                'tryYogaButton': '尝试瑜伽'
+            },
+            en: {
+                'pageTitle': 'YOGA ASANAS',
+                'pageSubtitle': 'Discover the benefits of yoga poses for mind and body',
+                'tryItOutButton': 'TRY IT OUT',
+                'uploadButton': 'UPLOAD',
+                'aiChatButton': 'AI CHAT',
+                'trikonasanaDesc': 'It helps in reducing excess body weight, strengthens legs and arms, and helps in improving digestion.',
+                'virabadrasanaDesc': 'It strengthens legs, improves balance, enhances focus, and instills a sense of determination and resilience.',
+                'vrikshasanaDesc': 'It improves the strength of your back and legs and tends to improve your balance when practiced regularly.',
+                'bhujangasanaDesc': 'It improves blood circulation and strengthens the lower back and muscles of your arms.',
+                'sukhasanaDesc': 'It calms your mind and enhances your peace of mind. It also helps in improving body posture.',
+                'chakrasanaDesc': 'It cures back and kidney pain. It also helps in stimulating the thyroid and pituitary glands.',
+                'balasanaDesc': 'This pose is mentally, physically, and emotionally relaxing.',
+                'shavasanaDesc': 'It is a relaxation pose and hence relaxes the entire body. It improves memory and concentration and increases memory levels.',
+                'homeButton': 'Home',
+                'tryYogaButton': 'Try Yoga'
+            }
+        };
+        
+        // 设置默认语言
+        let currentLanguage = localStorage.getItem('yogaAppLanguage') || 'zh';
+        
+        // Function to update all text on the page based on selected language
+        function updateLanguage(lang) {
+            // 更新具有data-i18n属性的元素
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (key && translations[lang][key]) {
+                    if (el.tagName.toLowerCase() === 'input') {
+                        if (el.type === 'text' || el.type === 'button') {
+                            el.value = translations[lang][key];
+                        }
+                    } else {
+                        el.textContent = translations[lang][key];
+                    }
+                }
+            });
+            
+            // 更新具有data-i18n-placeholder属性的元素
+            document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+                const key = el.getAttribute('data-i18n-placeholder');
+                if (key && translations[lang][key]) {
+                    el.placeholder = translations[lang][key];
+                }
+            });
+            
+            // 更新语言切换按钮文本
+            const langButton = document.getElementById('currentLang');
+            if (langButton) {
+                langButton.textContent = lang === 'zh' ? '切换到英文' : 'Switch to Chinese';
+            }
+        }
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            // 浮动菜单功能
+            const floatMenuButton = document.getElementById('floatMenuButton');
+            const floatMenuItems = document.getElementById('floatMenuItems');
+            
+            floatMenuButton.addEventListener('click', function() {
+                floatMenuItems.classList.toggle('active');
+                // 打开时旋转菜单图标
+                const menuIcon = floatMenuButton.querySelector('.float-menu-icon');
+                if (floatMenuItems.classList.contains('active')) {
+                    menuIcon.style.transform = 'rotate(90deg)';
+                } else {
+                    menuIcon.style.transform = 'rotate(0)';
+                }
+            });
+            
+            // 点击外部区域关闭菜单
+            document.addEventListener('click', function(event) {
+                if (!floatMenuButton.contains(event.target) && !floatMenuItems.contains(event.target)) {
+                    floatMenuItems.classList.remove('active');
+                    const menuIcon = floatMenuButton.querySelector('.float-menu-icon');
+                    menuIcon.style.transform = 'rotate(0)';
+                }
+            });
+            
+            // 添加语言切换到浮动菜单
+            const languageSwitcher = document.createElement('div');
+            languageSwitcher.className = 'float-menu-item';
+            languageSwitcher.innerHTML = `
+                <svg class="float-menu-item-icon" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="2" y1="12" x2="22" y2="12"></line>
+                    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+                </svg>
+                <span id="currentLang">${currentLanguage === 'zh' ? '切换到英文' : 'Switch to Chinese'}</span>
+            `;
+            floatMenuItems.appendChild(languageSwitcher);
+            
+            // 添加语言切换事件
+            languageSwitcher.addEventListener('click', function() {
+                // 切换语言
+                currentLanguage = currentLanguage === 'zh' ? 'en' : 'zh';
+                
+                // 保存到localStorage
+                localStorage.setItem('yogaAppLanguage', currentLanguage);
+                
+                // 更新界面文本
+                updateLanguage(currentLanguage);
+                
+                // 更新浮动菜单文本
+                updateFloatMenuText();
+                
+                // 更新语言切换按钮文本
+                document.getElementById('currentLang').textContent = 
+                    currentLanguage === 'zh' ? '切换到英文' : 'Switch to Chinese';
+            });
+            
+            // 初始化语言设置
+            updateLanguage(currentLanguage);
+            updateFloatMenuText();
+        });
+
+        // Update menu item text when language changes
+        function updateFloatMenuText() {
+            document.querySelectorAll('.float-menu-item').forEach(item => {
+                const key = item.getAttribute('data-i18n');
+                if (key && translations[currentLanguage][key]) {
+                    item.querySelector('span').textContent = translations[currentLanguage][key];
+                }
+            });
+        }
+    </script>
+</body>
+</html>
