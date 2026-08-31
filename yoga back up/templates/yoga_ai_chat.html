@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>瑜伽AI助手</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;600;700;800;900&display=swap">
+    <style>
+        :root {
+            --apple-background: #f5f7fa;
+            --apple-panel: #ffffff;
+            --apple-accent: #0071e3;
+            --apple-accent-hover: #0077ED;
+            --apple-text-primary: #1d1d1f;
+            --apple-text-secondary: #86868b;
+            --apple-border: #d2d2d7;
+            --apple-success: #32d74b;
+            --apple-error: #ff453a;
+            --apple-warning: #ff9f0a;
+            --apple-border-radius: 12px;
+            --apple-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+            --apple-font: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro', sans-serif;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: var(--apple-font);
+            background-color: var(--apple-background);
+            color: var(--apple-text-primary);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            padding: 24px;
+        }
+        
+        .page-header {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 24px;
+            text-align: center;
+            margin-top: 20px;
+        }
+        
+        .page-title {
+            font-size: 28px;
+            font-weight: 600;
+            color: var(--apple-text-primary);
+            margin-bottom: 16px;
+        }
+        
+        .chat-container {
+            display: flex;
+            flex-direction: column;
+            height: calc(100vh - 120px);
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: var(--apple-panel);
+            border-radius: var(--apple-border-radius);
+            box-shadow: var(--apple-shadow);
+            overflow: hidden;
+        }
+        
+        .chat-header {
+            padding: 16px 24px;
+            border-bottom: 1px solid var(--apple-border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .chat-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--apple-text-primary);
+        }
+        
+        .chat-subtitle {
+            font-size: 14px;
+            color: var(--apple-text-secondary);
+        }
+        
+        .chat-message-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px;
+        }
+        
+        .message {
+            margin-bottom: 20px;
+            display: flex;
+            align-items: flex-start;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        .message.user {
+            justify-content: flex-end;
+        }
+        
+        .message-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background-color: var(--apple-accent);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 16px;
+            margin-right: 12px;
+        }
+        
+        .message.user .message-avatar {
+            background-color: var(--apple-success);
+            order: 1;
+            margin-right: 0;
+            margin-left: 12px;
+        }
+        
+        .message-content {
+            background-color: #f2f2f7;
+            padding: 12px 16px;
+            border-radius: 18px;
+            max-width: 70%;
+            font-size: 15px;
+            line-height: 1.4;
+        }
+        
+        .message.user .message-content {
+            background-color: var(--apple-accent);
+            color: white;
+        }
+        
+        .message.ai .message-content {
+            background-color: #f2f2f7;
+            color: var(--apple-text-primary);
+        }
+        
+        .chat-input {
+            padding: 16px 24px;
+            border-top: 1px solid var(--apple-border);
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        
+        .chat-input-field {
+            flex: 1;
+            padding: 12px 16px;
+            border: 1px solid var(--apple-border);
+            border-radius: 24px;
+            font-size: 15px;
+            font-family: var(--apple-font);
+            outline: none;
+            transition: all 0.2s ease;
+        }
+        
+        .chat-input-field:focus {
+            border-color: var(--apple-accent);
+            box-shadow: 0 0 0 2px rgba(0, 113, 227, 0.2);
+        }
+        
+        .send-button {
+            background-color: var(--apple-accent);
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 20px;
+            font-size: 15px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .send-button:hover {
+            background-color: var(--apple-accent-hover);
+            transform: translateY(-1px);
+        }
+        
+        .send-button:active {
+            transform: scale(0.98);
+        }
+        
+        .welcome-message {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--apple-text-secondary);
+            font-size: 16px;
+        }
+        
+        .welcome-message h2 {
+            color: var(--apple-text-primary);
+            font-size: 24px;
+            margin-bottom: 16px;
+        }
+        
+        .welcome-message p {
+            margin-bottom: 12px;
+            line-height: 1.6;
+        }
+        
+        .example-queries {
+            margin-top: 20px;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 12px;
+        }
+        
+        .example-query {
+            background-color: var(--apple-panel);
+            border: 1px solid var(--apple-border);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .example-query:hover {
+            background-color: var(--apple-accent);
+            color: white;
+            border-color: var(--apple-accent);
+            transform: translateY(-1px);
+        }
+        
+        .loading-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            background-color: rgba(0, 0, 0, 0.05);
+            border-radius: 16px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            color: var(--apple-text-secondary);
+            animation: fadeIn 0.3s ease;
+        }
+        
+        .loading-dots {
+            display: flex;
+            gap: 4px;
+        }
+        
+        .dot {
+            width: 8px;
+            height: 8px;
+            background-color: var(--apple-accent);
+            border-radius: 50%;
+            animation: bounce 1.4s infinite ease-in-out both;
+        }
+        
+        .dot:nth-child(1) {
+            animation-delay: -0.32s;
+        }
+        
+        .dot:nth-child(2) {
+            animation-delay: -0.16s;
+        }
+        
+        @keyframes bounce {
+            0%, 80%, 100% {
+                transform: scale(0);
+            }
+            40% {
+                transform: scale(1.0);
+            }
+        }
+        
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        /* Record history section */
+        .record-history {
+            margin-top: 8px;
+            font-size: 14px;
+            color: var(--apple-text-secondary);
+        }
+        
+        .training-count {
+            font-weight: 600;
+            color: var(--apple-accent);
+        }
+        
+        /* Responsive design */
+        @media (max-width: 768px) {
+            body {
+                padding: 16px;
+            }
+            
+            .page-header {
+                margin-top: 20px;
+            }
+            
+            .message-content {
+                max-width: 85%;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .page-header {
+                margin-top: 24px;
+            }
+        }
+        
+        /* Float menu button styles */
+        .float-menu-container {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            z-index: 1000;
+        }
+        
+        .float-menu-button {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background-color: var(--apple-accent);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .float-menu-button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+        }
+        
+        .float-menu-icon {
+            width: 24px;
+            height: 24px;
+            stroke: white;
+            fill: none;
+            stroke-width: 2;
+            transition: transform 0.3s ease;
+        }
+        
+        .float-menu-items {
+            position: absolute;
+            bottom: 70px;
+            right: 0;
+            background-color: var(--apple-panel);
+            border-radius: var(--apple-border-radius);
+            box-shadow: var(--apple-shadow);
+            padding: 8px 0;
+            width: 160px;
+            transform: scale(0);
+            transform-origin: bottom right;
+            opacity: 0;
+            transition: all 0.3s ease;
+            pointer-events: none;
+        }
+        
+        .float-menu-items.active {
+            transform: scale(1);
+            opacity: 1;
+            pointer-events: all;
+        }
+        
+        .float-menu-item {
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            color: var(--apple-text-primary);
+            text-decoration: none;
+            transition: background-color 0.2s ease;
+        }
+        
+        .float-menu-item:hover {
+            background-color: rgba(0, 0, 0, 0.05);
+        }
+        
+        .float-menu-item-icon {
+            width: 18px;
+            height: 18px;
+            margin-right: 12px;
+            stroke: var(--apple-accent);
+            fill: none;
+            stroke-width: 2;
+        }
+        
+        .yoga-link-button {
+            background-color: var(--apple-accent);
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.2s ease;
+            display: inline-block;
+            margin-top: 16px;
+        }
+        
+        .yoga-link-button:hover {
+            background-color: var(--apple-accent-hover);
+            transform: translateY(-1px);
+        }
+    </style>
+</head>
+<body>
+    <!-- 浮动菜单 -->
+    <div class="float-menu-container">
+        <div class="float-menu-button" id="floatMenuButton">
+            <svg class="float-menu-icon" viewBox="0 0 24 24">
+                <line x1="3" y1="12" x2="21" y2="12"></line>
+                <line x1="3" y1="6" x2="21" y2="6"></line>
+                <line x1="3" y1="18" x2="21" y2="18"></line>
+            </svg>
+        </div>
+        <div class="float-menu-items" id="floatMenuItems">
+            <a href="/" class="float-menu-item" data-i18n="homeButton">
+                <svg class="float-menu-item-icon" viewBox="0 0 24 24">
+                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                    <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                </svg>
+                <span>首页</span>
+            </a>
+            <a href="/yoga_try" class="float-menu-item" data-i18n="tryYogaButton">
+                <svg class="float-menu-item-icon" viewBox="0 0 24 24">
+                    <path d="M18 8h1a4 4 0 0 1 0 8h-1"></path>
+                    <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path>
+                    <line x1="6" y1="1" x2="6" y2="4"></line>
+                    <line x1="10" y1="1" x2="10" y2="4"></line>
+                    <line x1="14" y1="1" x2="14" y2="4"></line>
+                </svg>
+                <span>尝试瑜伽</span>
+            </a>
+            <a href="/upload" class="float-menu-item" data-i18n="uploadButton">
+                <svg class="float-menu-item-icon" viewBox="0 0 24 24">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="17 8 12 3 7 8"></polyline>
+                    <line x1="12" y1="3" x2="12" y2="15"></line>
+                </svg>
+                <span>上传姿势</span>
+            </a>
+            <a href="/yoga_ai_chat" class="float-menu-item" data-i18n="aiChatButton">
+                <span>AI 对话</span>
+            </a>
+            <!-- 语言切换会通过JavaScript添加 -->
+        </div>
+    </div>
+    
+    <div class="page-header">
+        <h1 class="page-title" data-i18n="pageTitle">瑜伽AI助手</h1>
+    </div>
+    
+    <div class="chat-container">
+        <div class="chat-header">
+            <div>
+                <div class="chat-title" data-i18n="chatTitle">瑜伽对话助手 (Qwen 2.5)</div>
+              
+            </div>
+            <div class="record-history">
+                <span data-i18n="recordCount">训练记录:</span> 
+                <span class="training-count">{{ record_count }}</span>
+            </div>
+        </div>
+        
+        <div id="chatMessages" class="chat-message-container">
+            {% if has_records %}
+                <div class="welcome-message">
+                    <h2 data-i18n="welcomeTitle">欢迎使用瑜伽AI助手</h2>
+                    <p data-i18n="welcomeMessage">我可以根据您的训练记录提供个性化的瑜伽建议和指导。请随时提问关于瑜伽姿势、训练进展或改进建议的问题。</p>
+                    <div class="example-queries">
+                        <div class="example-query" data-i18n="exampleQuery1">我的哪些瑜伽姿势需要改进？</div>
+                        <div class="example-query" data-i18n="exampleQuery2">如何改善我的trikonasana姿势？</div>
+                        <div class="example-query" data-i18n="exampleQuery3">我适合什么样的瑜伽练习？</div>
+                        <div class="example-query" data-i18n="exampleQuery4">分析我最近的训练情况</div>
+                    </div>
+                </div>
+            {% else %}
+                <div class="welcome-message">
+                    <h2 data-i18n="noRecordsTitle">还没有训练记录</h2>
+                    <p data-i18n="noRecordsMessage">您尚未保存任何瑜伽训练记录。请先在瑜伽训练页面完成训练并保存记录，以便我能提供个性化的分析和建议。</p>
+                    <a href="/yoga_try" class="yoga-link-button" data-i18n="goToTraining">前往训练</a>
+                </div>
+            {% endif %}
+        </div>
+        
+        <div class="chat-input">
+            <input id="messageInput" type="text" class="chat-input-field" placeholder="请输入您的问题..." data-i18n-placeholder="inputPlaceholder">
+            <button id="sendButton" class="send-button" data-i18n="sendButton">
+                发送
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M2.01 21L23 12L2.01 3L2 10L17 12L2 14L2.01 21Z" fill="white"/>
+                </svg>
+            </button>
+        </div>
+    </div>
+    
+    <script>
+        // Language translation dictionary
+        const translations = {
+            zh: {
+                'pageTitle': '瑜伽AI助手',
+                'homeButton': '首页',
+                'tryYogaButton': '尝试瑜伽',
+                'uploadButton': '上传姿势',
+                'chatTitle': '瑜伽对话助手 (Qwen 2.5)',
+                'poweredBy': '由 SiliconFlow 强力驱动',
+                'recordCount': '训练记录:',
+                'sendButton': '发送',
+                'inputPlaceholder': '请输入您的问题...',
+                'welcomeTitle': '欢迎使用瑜伽AI助手',
+                'welcomeMessage': '我可以根据您的训练记录提供个性化的瑜伽建议和指导。请随时提问关于瑜伽姿势、训练进展或改进建议的问题。',
+                'exampleQuery1': '我的哪些瑜伽姿势需要改进？',
+                'exampleQuery2': '如何改善我的trikonasana姿势？',
+                'exampleQuery3': '我适合什么样的瑜伽练习？',
+                'exampleQuery4': '分析我最近的训练情况',
+                'noRecordsTitle': '还没有训练记录',
+                'noRecordsMessage': '您尚未保存任何瑜伽训练记录。请先在瑜伽训练页面完成训练并保存记录，以便我能提供个性化的分析和建议。',
+                'goToTraining': '前往训练',
+                'loading': '思考中...',
+                'apiUnavailable': 'AI服务暂时不可用，请稍后再试。',
+                'requestError': '抱歉，处理您的请求时出错了。请稍后再试。',
+                'connectionError': '抱歉，连接服务器时出错了。请检查您的网络连接。'
+            },
+            en: {
+                'pageTitle': 'Yoga AI Assistant',
+                'homeButton': 'Home',
+                'tryYogaButton': 'Try Yoga',
+                'uploadButton': 'Upload Pose',
+                'chatTitle': 'Yoga Chat Assistant (Qwen 2.5)',
+                'poweredBy': 'Powered by SiliconFlow',
+                'recordCount': 'Training Records:',
+                'sendButton': 'Send',
+                'inputPlaceholder': 'Type your question...',
+                'welcomeTitle': 'Welcome to Yoga AI Assistant',
+                'welcomeMessage': 'I can provide personalized yoga recommendations and guidance based on your training records. Feel free to ask questions about yoga poses, training progress, or improvement suggestions.',
+                'exampleQuery1': 'Which yoga poses do I need to improve?',
+                'exampleQuery2': 'How can I improve my trikonasana pose?',
+                'exampleQuery3': 'What kind of yoga practice is suitable for me?',
+                'exampleQuery4': 'Analyze my recent training',
+                'noRecordsTitle': 'No Training Records Yet',
+                'noRecordsMessage': 'You haven\'t saved any yoga training records yet. Please complete training and save records in the yoga training page, so I can provide personalized analysis and recommendations.',
+                'goToTraining': 'Go to Training',
+                'loading': 'Thinking...',
+                'apiUnavailable': 'AI service is temporarily unavailable. Please try again later.',
+                'requestError': 'Sorry, there was an error processing your request. Please try again later.',
+                'connectionError': 'Sorry, there was an error connecting to the server. Please check your network connection.'
+            }
+        };
+        
+        // 设置默认语言
+        let currentLanguage = localStorage.getItem('yogaAppLanguage') || 'zh';
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            const messageInput = document.getElementById('messageInput');
+            const sendButton = document.getElementById('sendButton');
+            const chatMessages = document.getElementById('chatMessages');
+            const exampleQueries = document.querySelectorAll('.example-query');
+            
+            // 浮动菜单功能
+            const floatMenuButton = document.getElementById('floatMenuButton');
+            const floatMenuItems = document.getElementById('floatMenuItems');
+            
+            floatMenuButton.addEventListener('click', function() {
+                floatMenuItems.classList.toggle('active');
+                // 打开时旋转菜单图标
+                const menuIcon = floatMenuButton.querySelector('.float-menu-icon');
+                if (floatMenuItems.classList.contains('active')) {
+                    menuIcon.style.transform = 'rotate(90deg)';
+                } else {
+                    menuIcon.style.transform = 'rotate(0)';
+                }
+            });
+            
+            // 点击外部区域关闭菜单
+            document.addEventListener('click', function(event) {
+                if (!floatMenuButton.contains(event.target) && !floatMenuItems.contains(event.target)) {
+                    floatMenuItems.classList.remove('active');
+                    const menuIcon = floatMenuButton.querySelector('.float-menu-icon');
+                    menuIcon.style.transform = 'rotate(0)';
+                }
+            });
+            
+            // 添加语言切换到浮动菜单
+            const languageSwitcher = document.createElement('div');
+            languageSwitcher.className = 'float-menu-item';
+            languageSwitcher.innerHTML = `
+                <svg class="float-menu-item-icon" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="2" y1="12" x2="22" y2="12"></line>
+                    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+                </svg>
+                <span id="currentLang">${currentLanguage === 'zh' ? '切换到英文' : 'Switch to Chinese'}</span>
+            `;
+            floatMenuItems.appendChild(languageSwitcher);
+            
+            // 添加语言切换事件
+            languageSwitcher.addEventListener('click', function() {
+                // 切换语言
+                currentLanguage = currentLanguage === 'zh' ? 'en' : 'zh';
+                
+                // 保存到localStorage
+                localStorage.setItem('yogaAppLanguage', currentLanguage);
+                
+                // 更新界面文本
+                updateLanguage(currentLanguage);
+                
+                // 更新浮动菜单文本
+                updateFloatMenuText();
+                
+                // 更新语言切换按钮文本
+                document.getElementById('currentLang').textContent = 
+                    currentLanguage === 'zh' ? '切换到英文' : 'Switch to Chinese';
+            });
+            
+            // 初始化语言设置
+            updateLanguage(currentLanguage);
+            updateFloatMenuText();
+            
+            // Handle example query clicks
+            exampleQueries.forEach(query => {
+                query.addEventListener('click', function() {
+                    messageInput.value = this.textContent;
+                    sendButton.click();
+                });
+            });
+            
+            // Handle sending messages
+            sendButton.addEventListener('click', function() {
+                const message = messageInput.value.trim();
+                if (message) {
+                    addMessage(message, 'user');
+                    messageInput.value = '';
+                    
+                    // Show loading indicator
+                    showLoadingIndicator();
+                    
+                    // Send message to server
+                    fetch('/ai_chat_query', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            query: message
+                        })
+                    })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! Status: ${response.status}`);
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        // Remove loading indicator
+                        removeLoadingIndicator();
+                        
+                        if (data.success) {
+                            // 检查是否是API不可用消息
+                            if (data.response && data.response.includes("API暂时不可用")) {
+                                addMessage(getTranslation('apiUnavailable'), 'ai');
+                            } else {
+                                // 添加AI响应
+                                addMessage(data.response || getTranslation('requestError'), 'ai');
+                            }
+                        } else {
+                            // 处理错误
+                            addMessage(data.message || getTranslation('requestError'), 'ai');
+                        }
+                    })
+                    .catch(error => {
+                        // Remove loading indicator
+                        removeLoadingIndicator();
+                        console.error('Error:', error);
+                        addMessage(getTranslation('connectionError'), 'ai');
+                    });
+                }
+            });
+            
+            // Handle Enter key press
+            messageInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    sendButton.click();
+                }
+            });
+            
+            // Function to add a message to the chat
+            function addMessage(text, sender) {
+                // Clear welcome message if this is the first message
+                if (chatMessages.querySelector('.welcome-message')) {
+                    chatMessages.innerHTML = '';
+                }
+                
+                // Create message element
+                const messageDiv = document.createElement('div');
+                messageDiv.classList.add('message', sender);
+                
+                // Create avatar
+                const avatar = document.createElement('div');
+                avatar.classList.add('message-avatar');
+                avatar.textContent = sender === 'user' ? (currentLanguage === 'zh' ? '我' : 'Me') : 'AI';
+                
+                // Create message content
+                const content = document.createElement('div');
+                content.classList.add('message-content');
+                content.textContent = text;
+                
+                // Assemble message
+                messageDiv.appendChild(avatar);
+                messageDiv.appendChild(content);
+                
+                // Add to chat
+                chatMessages.appendChild(messageDiv);
+                
+                // Scroll to bottom
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+            
+            // Function to show loading indicator
+            function showLoadingIndicator() {
+                const loadingDiv = document.createElement('div');
+                loadingDiv.classList.add('loading-indicator');
+                loadingDiv.id = 'loadingIndicator';
+                
+                loadingDiv.innerHTML = `
+                    <span>${getTranslation('loading')}</span>
+                    <div class="loading-dots">
+                        <div class="dot"></div>
+                        <div class="dot"></div>
+                        <div class="dot"></div>
+                    </div>
+                `;
+                
+                chatMessages.appendChild(loadingDiv);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+            
+            // Function to remove loading indicator
+            function removeLoadingIndicator() {
+                const loadingIndicator = document.getElementById('loadingIndicator');
+                if (loadingIndicator) {
+                    loadingIndicator.remove();
+                }
+            }
+            
+            // Function to update all text on the page based on selected language
+            function updateLanguage(lang) {
+                // 更新具有data-i18n属性的元素
+                document.querySelectorAll('[data-i18n]').forEach(el => {
+                    const key = el.getAttribute('data-i18n');
+                    if (key && translations[lang][key]) {
+                        if (el.tagName.toLowerCase() === 'input') {
+                            if (el.type === 'text' || el.type === 'button') {
+                                el.value = translations[lang][key];
+                            }
+                        } else {
+                            el.textContent = translations[lang][key];
+                        }
+                    }
+                });
+                
+                // 更新具有data-i18n-placeholder属性的元素
+                document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+                    const key = el.getAttribute('data-i18n-placeholder');
+                    if (key && translations[lang][key]) {
+                        el.placeholder = translations[lang][key];
+                    }
+                });
+                
+                // 更新语言切换按钮文本
+                const langButton = document.getElementById('currentLang');
+                if (langButton) {
+                    langButton.textContent = lang === 'zh' ? '切换到英文' : 'Switch to Chinese';
+                }
+                
+                // 更新用户消息头像文本
+                document.querySelectorAll('.message.user .message-avatar').forEach(avatar => {
+                    avatar.textContent = lang === 'zh' ? '我' : 'Me';
+                });
+            }
+            
+            // Function to get translation for a key
+            function getTranslation(key) {
+                return translations[currentLanguage][key] || key;
+            }
+            
+            // Update menu item text when language changes
+            function updateFloatMenuText() {
+                document.querySelectorAll('.float-menu-item').forEach(item => {
+                    const key = item.getAttribute('data-i18n');
+                    if (key && translations[currentLanguage][key]) {
+                        const span = item.querySelector('span');
+                        if (span) {
+                            span.textContent = translations[currentLanguage][key];
+                        }
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html> 
